@@ -1,4 +1,5 @@
 pragma solidity 0.4.15;
+
 import "./Factory.sol";
 import "./MultiSigWallet.sol";
 
@@ -6,6 +7,12 @@ import "./MultiSigWallet.sol";
 /// @title Multisignature wallet factory - Allows creation of multisig wallet.
 /// @author Stefan George - <stefan.george@consensys.net>
 contract MultiSigWalletFactory is Factory {
+
+    bool public prod = false;
+
+    function MultiSigWalletFactory(bool prod_) {
+        prod = prod_;
+    }
 
     /*
      * Public functions
@@ -18,7 +25,7 @@ contract MultiSigWalletFactory is Factory {
         public
         returns (address wallet)
     {
-        wallet = new MultiSigWallet(_owners, _required);
+        wallet = new MultiSigWallet(_owners, _required, prod);
         register(wallet);
     }
 }

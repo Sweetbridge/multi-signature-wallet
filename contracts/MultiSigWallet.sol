@@ -32,71 +32,64 @@ contract MultiSigWallet {
     address[] public owners;
     uint public required;
     uint public transactionCount;
+    uint24 public expiryDelay;
 
     struct Transaction {
         address destination;
         uint value;
         bytes data;
         bool executed;
+        uint timestamp;
     }
 
     /*
      *  Modifiers
      */
     modifier onlyWallet() {
-        if (msg.sender != address(this))
-            throw;
+        require (msg.sender == address(this));
         _;
     }
 
     modifier ownerDoesNotExist(address owner) {
-        if (isOwner[owner])
-            throw;
+        require (!isOwner[owner]);
         _;
     }
 
     modifier ownerExists(address owner) {
-        if (!isOwner[owner])
-            throw;
+        require (isOwner[owner]);
         _;
     }
 
     modifier transactionExists(uint transactionId) {
-        if (transactions[transactionId].destination == 0)
-            throw;
+        require (transactions[transactionId].destination > 0);
         _;
     }
 
     modifier confirmed(uint transactionId, address owner) {
-        if (!confirmations[transactionId][owner])
-            throw;
+        require (confirmations[transactionId][owner]);
         _;
     }
 
     modifier notConfirmed(uint transactionId, address owner) {
-        if (confirmations[transactionId][owner])
-            throw;
+        require (!confirmations[transactionId][owner]);
         _;
     }
 
     modifier notExecuted(uint transactionId) {
-        if (transactions[transactionId].executed)
-            throw;
+        require (!transactions[transactionId].executed);
         _;
     }
 
     modifier notNull(address _address) {
-        if (_address == 0)
-            throw;
+        require (_address != 0);
         _;
     }
 
     modifier validRequirement(uint ownerCount, uint _required) {
-        if (   ownerCount > MAX_OWNER_COUNT
-            || _required > ownerCount
-            || _required == 0
-            || ownerCount == 0)
-            throw;
+        require ( ownerCount <= MAX_OWNER_COUNT
+            && _required <= ownerCount
+            && _required > 0
+            && ownerCount > 0 );
         _;
     }
 
@@ -114,17 +107,15 @@ contract MultiSigWallet {
     /// @dev Contract constructor sets initial owners and required number of confirmations.
     /// @param _owners List of initial owners.
     /// @param _required Number of required confirmations.
-    function MultiSigWallet(address[] _owners, uint _required)
-        public
-        validRequirement(_owners.length, _required)
-    {
-        for (uint i=0; i<_owners.length; i++) {
-            if (isOwner[_owners[i]] || _owners[i] == 0)
-                throw;
+    function MultiSigWallet(address[] _owners, uint _required, uint24 _expiryDelay)
+            validRequirement(_owners.length, _required) {
+        for (uint i = 0; i < _owners.length; i++) {
+            require (!isOwner[_owners[i]] && _owners[i] != address(0));
             isOwner[_owners[i]] = true;
         }
         owners = _owners;
         required = _required;
+        expiryDelay = _expiryDelay;
     }
 
     /// @dev Allows to add a new owner. Transaction has to be sent by wallet.
@@ -237,16 +228,25 @@ contract MultiSigWallet {
         confirmed(transactionId, msg.sender)
         notExecuted(transactionId)
     {
-        if (isConfirmed(transactionId)) {
-            Transaction tx = transactions[transactionId];
-            tx.executed = true;
-            if (tx.destination.call.value(tx.value)(tx.data))
+        Transaction storage trx = transactions[transactionId];
+        // check that the expiry deadline has not passed and everyone has confirmed
+        if (isConfirmed(transactionId) && hasNotExpired(transactionId)) {
+            trx.executed = true;
+            if (trx.destination.call.value(trx.value)(trx.data)){
                 Execution(transactionId);
-            else {
-                ExecutionFailure(transactionId);
-                tx.executed = false;
+                return;
             }
         }
+        ExecutionFailure(transactionId);
+    }
+
+    function expiryDetails(uint transactionId) constant returns (uint now_, uint delay_) {
+        now_ = now;
+        delay_ = transactions[transactionId].timestamp + expiryDelay;
+    }
+
+    function hasNotExpired(uint transactionId) constant returns(bool) {
+        return now < transactions[transactionId].timestamp + expiryDelay;
     }
 
     /// @dev Returns the confirmation status of a transaction.
@@ -257,6 +257,9 @@ contract MultiSigWallet {
         constant
         returns (bool)
     {
+        /*no confirmation after expiry*/
+
+        /*check for confirmation count*/
         uint count = 0;
         for (uint i=0; i<owners.length; i++) {
             if (confirmations[transactionId][owners[i]])
@@ -284,7 +287,8 @@ contract MultiSigWallet {
             destination: destination,
             value: value,
             data: data,
-            executed: false
+            executed: false,
+            timestamp: now
         });
         transactionCount += 1;
         Submission(transactionId);

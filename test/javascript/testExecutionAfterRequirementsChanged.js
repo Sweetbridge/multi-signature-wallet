@@ -1,7 +1,7 @@
 const MultiSigWallet = artifacts.require('MultiSigWallet')
 const web3 = MultiSigWallet.web3
 const deployMultisig = (owners, confirmations) => {
-    return MultiSigWallet.new(owners, confirmations)
+    return MultiSigWallet.new(owners, confirmations, 120)
 }
 
 const utils = require('./utils')

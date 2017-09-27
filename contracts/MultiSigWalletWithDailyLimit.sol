@@ -1,4 +1,6 @@
 pragma solidity 0.4.15;
+
+
 import "./MultiSigWallet.sol";
 
 
@@ -15,7 +17,9 @@ contract MultiSigWalletWithDailyLimit is MultiSigWallet {
      *  Storage
      */
     uint public dailyLimit;
+
     uint public lastDay;
+
     uint public spentToday;
 
     /*
@@ -25,19 +29,15 @@ contract MultiSigWalletWithDailyLimit is MultiSigWallet {
     /// @param _owners List of initial owners.
     /// @param _required Number of required confirmations.
     /// @param _dailyLimit Amount in wei, which can be withdrawn without confirmations on a daily basis.
-    function MultiSigWalletWithDailyLimit(address[] _owners, uint _required, uint _dailyLimit)
-        public
-        MultiSigWallet(_owners, _required)
+    function MultiSigWalletWithDailyLimit(address[] _owners, uint _required, uint _dailyLimit, uint24 _expiryDelay)
+    MultiSigWallet(_owners, _required, _expiryDelay)
     {
         dailyLimit = _dailyLimit;
     }
 
     /// @dev Allows to change the daily limit. Transaction has to be sent by wallet.
     /// @param _dailyLimit Amount in wei.
-    function changeDailyLimit(uint _dailyLimit)
-        public
-        onlyWallet
-    {
+    function changeDailyLimit(uint _dailyLimit) onlyWallet {
         dailyLimit = _dailyLimit;
         DailyLimitChange(_dailyLimit);
     }
@@ -45,24 +45,24 @@ contract MultiSigWalletWithDailyLimit is MultiSigWallet {
     /// @dev Allows anyone to execute a confirmed transaction or ether withdraws until daily limit is reached.
     /// @param transactionId Transaction ID.
     function executeTransaction(uint transactionId)
-        public
         ownerExists(msg.sender)
         confirmed(transactionId, msg.sender)
         notExecuted(transactionId)
     {
-        Transaction tx = transactions[transactionId];
+        Transaction storage trx = transactions[transactionId];
         bool _confirmed = isConfirmed(transactionId);
-        if (_confirmed || tx.data.length == 0 && isUnderLimit(tx.value)) {
-            tx.executed = true;
+        if (hasNotExpired(transactionId) && (_confirmed || trx.data.length == 0 && isUnderLimit(trx.value))) {
+            trx.executed = true;
             if (!_confirmed)
-                spentToday += tx.value;
-            if (tx.destination.call.value(tx.value)(tx.data))
+                spentToday += trx.value;
+
+            if (trx.destination.call.value(trx.value)(trx.data))
                 Execution(transactionId);
             else {
                 ExecutionFailure(transactionId);
-                tx.executed = false;
+                trx.executed = false;
                 if (!_confirmed)
-                    spentToday -= tx.value;
+                    spentToday -= trx.value;
             }
         }
     }
@@ -74,8 +74,8 @@ contract MultiSigWalletWithDailyLimit is MultiSigWallet {
     /// @param amount Amount to withdraw.
     /// @return Returns if amount is under daily limit.
     function isUnderLimit(uint amount)
-        internal
-        returns (bool)
+    internal
+    returns (bool)
     {
         if (now > lastDay + 24 hours) {
             lastDay = now;
@@ -91,15 +91,12 @@ contract MultiSigWalletWithDailyLimit is MultiSigWallet {
      */
     /// @dev Returns maximum withdraw amount.
     /// @return Returns amount.
-    function calcMaxWithdraw()
-        public
-        constant
-        returns (uint)
+    function calcMaxWithdraw() constant returns (uint)
     {
         if (now > lastDay + 24 hours)
-            return dailyLimit;
+        return dailyLimit;
         if (dailyLimit < spentToday)
-            return 0;
+        return 0;
         return dailyLimit - spentToday;
     }
 }
