@@ -26,7 +26,7 @@ contract MultiSigWalletWithDailyLimitFactory is Factory {
         returns (address wallet)
     {
         uint24 delay = 120;
-        if(prod) delay = 5 * 24 * 3600;
+        if(prod) delay = 15 * 24 * 3600;
         wallet = new MultiSigWalletWithDailyLimit(_owners, _required, _dailyLimit, delay);
         register(wallet);
     }

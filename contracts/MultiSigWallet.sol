@@ -235,6 +235,8 @@ contract MultiSigWallet {
             if (trx.destination.call.value(trx.value)(trx.data)){
                 Execution(transactionId);
                 return;
+            } else {
+                trx.executed = false;
             }
         }
         ExecutionFailure(transactionId);
@@ -257,8 +259,6 @@ contract MultiSigWallet {
         constant
         returns (bool)
     {
-        /*no confirmation after expiry*/
-
         /*check for confirmation count*/
         uint count = 0;
         for (uint i=0; i<owners.length; i++) {

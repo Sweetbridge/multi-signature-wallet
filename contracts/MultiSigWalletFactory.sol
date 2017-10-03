@@ -25,7 +25,9 @@ contract MultiSigWalletFactory is Factory {
         public
         returns (address wallet)
     {
-        wallet = new MultiSigWallet(_owners, _required, prod);
+        uint24 delay = 120;
+        if(prod) delay = 15 * 24 * 3600;
+        wallet = new MultiSigWallet(_owners, _required, delay);
         register(wallet);
     }
 }

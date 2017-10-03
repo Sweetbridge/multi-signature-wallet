@@ -1,0 +1,1424 @@
+[1mdiff --git a/README.md b/README.md[m
+[1mindex ba277eb..d39ab75 100644[m
+[1m--- a/README.md[m
+[1m+++ b/README.md[m
+[36m@@ -1,8 +1,6 @@[m
+ Ethereum Multisignature Wallet[m
+ ===================[m
+ [m
+[31m-[![Join the chat at https://gitter.im/gnosis/MultiSigWallet](https://badges.gitter.im/gnosis/MultiSigWallet.svg)](https://gitter.im/gnosis/MultiSigWallet?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)[m
+[31m-[m
+ The purpose of multisig wallets is to increase security by requiring multiple parties to agree on transactions before execution. Transactions can be executed only when confirmed by a predefined number of owners. A web user interface can be found [here](/dapp).[m
+ [m
+ Features[m
+[1mdiff --git a/contracts/Factory.sol b/contracts/Factory.sol[m
+[1mindex 90d6fc7..e68af1c 100644[m
+[1m--- a/contracts/Factory.sol[m
+[1m+++ b/contracts/Factory.sol[m
+[36m@@ -1,3 +1,5 @@[m
+[32m+[m[32mpragma solidity 0.4.15;[m
+[32m+[m
+ contract Factory {[m
+ [m
+     /*[m
+[1mdiff --git a/contracts/MultiSigWallet.sol b/contracts/MultiSigWallet.sol[m
+[1mindex 862ee92..610610f 100644[m
+[1m--- a/contracts/MultiSigWallet.sol[m
+[1m+++ b/contracts/MultiSigWallet.sol[m
+[36m@@ -32,71 +32,64 @@[m [mcontract MultiSigWallet {[m
+     address[] public owners;[m
+     uint public required;[m
+     uint public transactionCount;[m
+[32m+[m[32m    uint24 public expiryDelay;[m
+ [m
+     struct Transaction {[m
+         address destination;[m
+         uint value;[m
+         bytes data;[m
+         bool executed;[m
+[32m+[m[32m        uint timestamp;[m
+     }[m
+ [m
+     /*[m
+      *  Modifiers[m
+      */[m
+     modifier onlyWallet() {[m
+[31m-        if (msg.sender != address(this))[m
+[31m-            throw;[m
+[32m+[m[32m        require (msg.sender == address(this));[m
+         _;[m
+     }[m
+ [m
+     modifier ownerDoesNotExist(address owner) {[m
+[31m-        if (isOwner[owner])[m
+[31m-            throw;[m
+[32m+[m[32m        require (!isOwner[owner]);[m
+         _;[m
+     }[m
+ [m
+     modifier ownerExists(address owner) {[m
+[31m-        if (!isOwner[owner])[m
+[31m-            throw;[m
+[32m+[m[32m        require (isOwner[owner]);[m
+         _;[m
+     }[m
+ [m
+     modifier transactionExists(uint transactionId) {[m
+[31m-        if (transactions[transactionId].destination == 0)[m
+[31m-            throw;[m
+[32m+[m[32m        require (transactions[transactionId].destination > 0);[m
+         _;[m
+     }[m
+ [m
+     modifier confirmed(uint transactionId, address owner) {[m
+[31m-        if (!confirmations[transactionId][owner])[m
+[31m-            throw;[m
+[32m+[m[32m        require (confirmations[transactionId][owner]);[m
+         _;[m
+     }[m
+ [m
+     modifier notConfirmed(uint transactionId, address owner) {[m
+[31m-        if (confirmations[transactionId][owner])[m
+[31m-            throw;[m
+[32m+[m[32m        require (!confirmations[transactionId][owner]);[m
+         _;[m
+     }[m
+ [m
+     modifier notExecuted(uint transactionId) {[m
+[31m-        if (transactions[transactionId].executed)[m
+[31m-            throw;[m
+[32m+[m[32m        require (!transactions[transactionId].executed);[m
+         _;[m
+     }[m
+ [m
+     modifier notNull(address _address) {[m
+[31m-        if (_address == 0)[m
+[31m-            throw;[m
+[32m+[m[32m        require (_address != 0);[m
+         _;[m
+     }[m
+ [m
+     modifier validRequirement(uint ownerCount, uint _required) {[m
+[31m-        if (   ownerCount > MAX_OWNER_COUNT[m
+[31m-            || _required > ownerCount[m
+[31m-            || _required == 0[m
+[31m-            || ownerCount == 0)[m
+[31m-            throw;[m
+[32m+[m[32m        require ( ownerCount <= MAX_OWNER_COUNT[m
+[32m+[m[32m            && _required <= ownerCount[m
+[32m+[m[32m            && _required > 0[m
+[32m+[m[32m            && ownerCount > 0 );[m
+         _;[m
+     }[m
+ [m
+[36m@@ -114,17 +107,15 @@[m [mcontract MultiSigWallet {[m
+     /// @dev Contract constructor sets initial owners and required number of confirmations.[m
+     /// @param _owners List of initial owners.[m
+     /// @param _required Number of required confirmations.[m
+[31m-    function MultiSigWallet(address[] _owners, uint _required)[m
+[31m-        public[m
+[31m-        validRequirement(_owners.length, _required)[m
+[31m-    {[m
+[31m-        for (uint i=0; i<_owners.length; i++) {[m
+[31m-            if (isOwner[_owners[i]] || _owners[i] == 0)[m
+[31m-                throw;[m
+[32m+[m[32m    function MultiSigWallet(address[] _owners, uint _required, uint24 _expiryDelay)[m
+[32m+[m[32m            validRequirement(_owners.length, _required) {[m
+[32m+[m[32m        for (uint i = 0; i < _owners.length; i++) {[m
+[32m+[m[32m            require (!isOwner[_owners[i]] && _owners[i] != address(0));[m
+             isOwner[_owners[i]] = true;[m
+         }[m
+         owners = _owners;[m
+         required = _required;[m
+[32m+[m[32m        expiryDelay = _expiryDelay;[m
+     }[m
+ [m
+     /// @dev Allows to add a new owner. Transaction has to be sent by wallet.[m
+[36m@@ -237,16 +228,25 @@[m [mcontract MultiSigWallet {[m
+         confirmed(transactionId, msg.sender)[m
+         notExecuted(transactionId)[m
+     {[m
+[31m-        if (isConfirmed(transactionId)) {[m
+[31m-            Transaction tx = transactions[transactionId];[m
+[31m-            tx.executed = true;[m
+[31m-            if (tx.destination.call.value(tx.value)(tx.data))[m
+[32m+[m[32m        Transaction storage trx = transactions[transactionId];[m
+[32m+[m[32m        // check that the expiry deadline has not passed and everyone has confirmed[m
+[32m+[m[32m        if (isConfirmed(transactionId) && hasNotExpired(transactionId)) {[m
+[32m+[m[32m            trx.executed = true;[m
+[32m+[m[32m            if (trx.destination.call.value(trx.value)(trx.data)){[m
+                 Execution(transactionId);[m
+[31m-            else {[m
+[31m-                ExecutionFailure(transactionId);[m
+[31m-                tx.executed = false;[m
+[32m+[m[32m                return;[m
+             }[m
+         }[m
+[32m+[m[32m        ExecutionFailure(transactionId);[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    function expiryDetails(uint transactionId) constant returns (uint now_, uint delay_) {[m
+[32m+[m[32m        now_ = now;[m
+[32m+[m[32m        delay_ = transactions[transactionId].timestamp + expiryDelay;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    function hasNotExpired(uint transactionId) constant returns(bool) {[m
+[32m+[m[32m        return now < transactions[transactionId].timestamp + expiryDelay;[m
+     }[m
+ [m
+     /// @dev Returns the confirmation status of a transaction.[m
+[36m@@ -257,6 +257,9 @@[m [mcontract MultiSigWallet {[m
+         constant[m
+         returns (bool)[m
+     {[m
+[32m+[m[32m        /*no confirmation after expiry*/[m
+[32m+[m
+[32m+[m[32m        /*check for confirmation count*/[m
+         uint count = 0;[m
+         for (uint i=0; i<owners.length; i++) {[m
+             if (confirmations[transactionId][owners[i]])[m
+[36m@@ -284,7 +287,8 @@[m [mcontract MultiSigWallet {[m
+             destination: destination,[m
+             value: value,[m
+             data: data,[m
+[31m-            executed: false[m
+[32m+[m[32m            executed: false,[m
+[32m+[m[32m            timestamp: now[m
+         });[m
+         transactionCount += 1;[m
+         Submission(transactionId);[m
+[1mdiff --git a/contracts/MultiSigWalletFactory.sol b/contracts/MultiSigWalletFactory.sol[m
+[1mindex ed6ed81..3ed2106 100644[m
+[1m--- a/contracts/MultiSigWalletFactory.sol[m
+[1m+++ b/contracts/MultiSigWalletFactory.sol[m
+[36m@@ -1,4 +1,5 @@[m
+ pragma solidity 0.4.15;[m
+[32m+[m
+ import "./Factory.sol";[m
+ import "./MultiSigWallet.sol";[m
+ [m
+[36m@@ -7,6 +8,12 @@[m [mimport "./MultiSigWallet.sol";[m
+ /// @author Stefan George - <stefan.george@consensys.net>[m
+ contract MultiSigWalletFactory is Factory {[m
+ [m
+[32m+[m[32m    bool public prod = false;[m
+[32m+[m
+[32m+[m[32m    function MultiSigWalletFactory(bool prod_) {[m
+[32m+[m[32m        prod = prod_;[m
+[32m+[m[32m    }[m
+[32m+[m
+     /*[m
+      * Public functions[m
+      */[m
+[36m@@ -18,7 +25,9 @@[m [mcontract MultiSigWalletFactory is Factory {[m
+         public[m
+         returns (address wallet)[m
+     {[m
+[31m-        wallet = new MultiSigWallet(_owners, _required);[m
+[32m+[m[32m        uint24 delay = 120;[m
+[32m+[m[32m        if(prod) delay = 15 * 24 * 3600;[m
+[32m+[m[32m        wallet = new MultiSigWallet(_owners, _required, delay);[m
+         register(wallet);[m
+     }[m
+ }[m
+[1mdiff --git a/contracts/MultiSigWalletWithDailyLimit.sol b/contracts/MultiSigWalletWithDailyLimit.sol[m
+[1mindex 683b3ad..4334eae 100644[m
+[1m--- a/contracts/MultiSigWalletWithDailyLimit.sol[m
+[1m+++ b/contracts/MultiSigWalletWithDailyLimit.sol[m
+[36m@@ -1,4 +1,6 @@[m
+ pragma solidity 0.4.15;[m
+[32m+[m
+[32m+[m
+ import "./MultiSigWallet.sol";[m
+ [m
+ [m
+[36m@@ -15,7 +17,9 @@[m [mcontract MultiSigWalletWithDailyLimit is MultiSigWallet {[m
+      *  Storage[m
+      */[m
+     uint public dailyLimit;[m
+[32m+[m
+     uint public lastDay;[m
+[32m+[m
+     uint public spentToday;[m
+ [m
+     /*[m
+[36m@@ -25,19 +29,15 @@[m [mcontract MultiSigWalletWithDailyLimit is MultiSigWallet {[m
+     /// @param _owners List of initial owners.[m
+     /// @param _required Number of required confirmations.[m
+     /// @param _dailyLimit Amount in wei, which can be withdrawn without confirmations on a daily basis.[m
+[31m-    function MultiSigWalletWithDailyLimit(address[] _owners, uint _required, uint _dailyLimit)[m
+[31m-        public[m
+[31m-        MultiSigWallet(_owners, _required)[m
+[32m+[m[32m    function MultiSigWalletWithDailyLimit(address[] _owners, uint _required, uint _dailyLimit, uint24 _expiryDelay)[m
+[32m+[m[32m    MultiSigWallet(_owners, _required, _expiryDelay)[m
+     {[m
+         dailyLimit = _dailyLimit;[m
+     }[m
+ [m
+     /// @dev Allows to change the daily limit. Transaction has to be sent by wallet.[m
+     /// @param _dailyLimit Amount in wei.[m
+[31m-    function changeDailyLimit(uint _dailyLimit)[m
+[31m-        public[m
+[31m-        onlyWallet[m
+[31m-    {[m
+[32m+[m[32m    function changeDailyLimit(uint _dailyLimit) onlyWallet {[m
+         dailyLimit = _dailyLimit;[m
+         DailyLimitChange(_dailyLimit);[m
+     }[m
+[36m@@ -45,24 +45,24 @@[m [mcontract MultiSigWalletWithDailyLimit is MultiSigWallet {[m
+     /// @dev Allows anyone to execute a confirmed transaction or ether withdraws until daily limit is reached.[m
+     /// @param transactionId Transaction ID.[m
+     function executeTransaction(uint transactionId)[m
+[31m-        public[m
+         ownerExists(msg.sender)[m
+         confirmed(transactionId, msg.sender)[m
+         notExecuted(transactionId)[m
+     {[m
+[31m-        Transaction tx = transactions[transactionId];[m
+[32m+[m[32m        Transaction storage trx = transactions[transactionId];[m
+         bool _confirmed = isConfirmed(transactionId);[m
+[31m-        if (_confirmed || tx.data.length == 0 && isUnderLimit(tx.value)) {[m
+[31m-            tx.executed = true;[m
+[32m+[m[32m        if (hasNotExpired(transactionId) && (_confirmed || trx.data.length == 0 && isUnderLimit(trx.value))) {[m
+[32m+[m[32m            trx.executed = true;[m
+             if (!_confirmed)[m
+[31m-                spentToday += tx.value;[m
+[31m-            if (tx.destination.call.value(tx.value)(tx.data))[m
+[32m+[m[32m                spentToday += trx.value;[m
+[32m+[m
+[32m+[m[32m            if (trx.destination.call.value(trx.value)(trx.data))[m
+                 Execution(transactionId);[m
+             else {[m
+                 ExecutionFailure(transactionId);[m
+[31m-                tx.executed = false;[m
+[32m+[m[32m                trx.executed = false;[m
+                 if (!_confirmed)[m
+[31m-                    spentToday -= tx.value;[m
+[32m+[m[32m                    spentToday -= trx.value;[m
+             }[m
+         }[m
+     }[m
+[36m@@ -74,8 +74,8 @@[m [mcontract MultiSigWalletWithDailyLimit is MultiSigWallet {[m
+     /// @param amount Amount to withdraw.[m
+     /// @return Returns if amount is under daily limit.[m
+     function isUnderLimit(uint amount)[m
+[31m-        internal[m
+[31m-        returns (bool)[m
+[32m+[m[32m    internal[m
+[32m+[m[32m    returns (bool)[m
+     {[m
+         if (now > lastDay + 24 hours) {[m
+             lastDay = now;[m
+[36m@@ -91,15 +91,12 @@[m [mcontract MultiSigWalletWithDailyLimit is MultiSigWallet {[m
+      */[m
+     /// @dev Returns maximum withdraw amount.[m
+     /// @return Returns amount.[m
+[31m-    function calcMaxWithdraw()[m
+[31m-        public[m
+[31m-        constant[m
+[31m-        returns (uint)[m
+[32m+[m[32m    function calcMaxWithdraw() constant returns (uint)[m
+     {[m
+         if (now > lastDay + 24 hours)[m
+[31m-            return dailyLimit;[m
+[32m+[m[32m        return dailyLimit;[m
+         if (dailyLimit < spentToday)[m
+[31m-            return 0;[m
+[32m+[m[32m        return 0;[m
+         return dailyLimit - spentToday;[m
+     }[m
+ }[m
+[1mdiff --git a/contracts/MultiSigWalletWithDailyLimitFactory.sol b/contracts/MultiSigWalletWithDailyLimitFactory.sol[m
+[1mindex 0614c66..84bf75d 100644[m
+[1m--- a/contracts/MultiSigWalletWithDailyLimitFactory.sol[m
+[1m+++ b/contracts/MultiSigWalletWithDailyLimitFactory.sol[m
+[36m@@ -1,4 +1,5 @@[m
+ pragma solidity 0.4.15;[m
+[32m+[m
+ import "./Factory.sol";[m
+ import "./MultiSigWalletWithDailyLimit.sol";[m
+ [m
+[36m@@ -6,6 +7,11 @@[m [mimport "./MultiSigWalletWithDailyLimit.sol";[m
+ /// @title Multisignature wallet factory for daily limit version - Allows creation of multisig wallet.[m
+ /// @author Stefan George - <stefan.george@consensys.net>[m
+ contract MultiSigWalletWithDailyLimitFactory is Factory {[m
+[32m+[m[32m    bool public prod = false;[m
+[32m+[m
+[32m+[m[32m    function MultiSigWalletWithDailyLimitFactory(bool prod_) {[m
+[32m+[m[32m        prod = prod_;[m
+[32m+[m[32m    }[m
+ [m
+     /*[m
+      * Public functions[m
+[36m@@ -16,10 +22,12 @@[m [mcontract MultiSigWalletWithDailyLimitFactory is Factory {[m
+     /// @param _dailyLimit Amount in wei, which can be withdrawn without confirmations on a daily basis.[m
+     /// @return Returns wallet address.[m
+     function create(address[] _owners, uint _required, uint _dailyLimit)[m
+[31m-        public[m
+[32m+[m
+         returns (address wallet)[m
+     {[m
+[31m-        wallet = new MultiSigWalletWithDailyLimit(_owners, _required, _dailyLimit);[m
+[32m+[m[32m        uint24 delay = 120;[m
+[32m+[m[32m        if(prod) delay = 15 * 24 * 3600;[m
+[32m+[m[32m        wallet = new MultiSigWalletWithDailyLimit(_owners, _required, _dailyLimit, delay);[m
+         register(wallet);[m
+     }[m
+ }[m
+[1mdiff --git a/contracts/TestToken.sol b/contracts/TestToken.sol[m
+[1mindex 2620e3c..103a4fd 100644[m
+[1m--- a/contracts/TestToken.sol[m
+[1m+++ b/contracts/TestToken.sol[m
+[36m@@ -1,6 +1,5 @@[m
+ pragma solidity 0.4.15;[m
+ [m
+[31m-[m
+ /// @title Test token contract - Allows testing of token transfers with multisig wallet.[m
+ contract TestToken {[m
+ [m
+[36m@@ -45,9 +44,8 @@[m [mcontract TestToken {[m
+         public[m
+         returns (bool success)[m
+     {[m
+[31m-        if (balances[msg.sender] < _value) {[m
+[31m-            throw;[m
+[31m-        }[m
+[32m+[m[32m        require (balances[msg.sender] >= _value);[m
+[32m+[m
+         balances[msg.sender] -= _value;[m
+         balances[_to] += _value;[m
+         Transfer(msg.sender, _to, _value);[m
+[36m@@ -63,9 +61,7 @@[m [mcontract TestToken {[m
+         public[m
+         returns (bool success)[m
+     {[m
+[31m-        if (balances[_from] < _value || allowed[_from][msg.sender] < _value) {[m
+[31m-            throw;[m
+[31m-        }[m
+[32m+[m[32m        require (balances[_from] >= _value && allowed[_from][msg.sender] >= _value);[m
+         balances[_to] += _value;[m
+         balances[_from] -= _value;[m
+         allowed[_from][msg.sender] -= _value;[m
+[1mdiff --git a/diff.txt b/diff.txt[m
+[1mnew file mode 100644[m
+[1mindex 0000000..d0a7262[m
+[1m--- /dev/null[m
+[1m+++ b/diff.txt[m
+[36m@@ -0,0 +1,399 @@[m
+[32m+[m[32m[1mdiff --git a/README.md b/README.md[m[m
+[32m+[m[32m[1mindex ba277eb..d39ab75 100644[m[m
+[32m+[m[32m[1m--- a/README.md[m[m
+[32m+[m[32m[1m+++ b/README.md[m[m
+[32m+[m[32m[36m@@ -1,8 +1,6 @@[m[m
+[32m+[m[32m Ethereum Multisignature Wallet[m[m
+[32m+[m[32m ===================[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m[31m-[![Join the chat at https://gitter.im/gnosis/MultiSigWallet](https://badges.gitter.im/gnosis/MultiSigWallet.svg)](https://gitter.im/gnosis/MultiSigWallet?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)[m[m
+[32m+[m[32m[31m-[m[m
+[32m+[m[32m The purpose of multisig wallets is to increase security by requiring multiple parties to agree on transactions before execution. Transactions can be executed only when confirmed by a predefined number of owners. A web user interface can be found [here](/dapp).[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m Features[m[m
+[32m+[m[32m[1mdiff --git a/contracts/Factory.sol b/contracts/Factory.sol[m[m
+[32m+[m[32m[1mindex 90d6fc7..e68af1c 100644[m[m
+[32m+[m[32m[1m--- a/contracts/Factory.sol[m[m
+[32m+[m[32m[1m+++ b/contracts/Factory.sol[m[m
+[32m+[m[32m[36m@@ -1,3 +1,5 @@[m[m
+[32m+[m[32m[32m+[m[32mpragma solidity 0.4.15;[m[m
+[32m+[m[32m[32m+[m[m
+[32m+[m[32m contract Factory {[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m     /*[m[m
+[32m+[m[32m[1mdiff --git a/contracts/MultiSigWallet.sol b/contracts/MultiSigWallet.sol[m[m
+[32m+[m[32m[1mindex 862ee92..610610f 100644[m[m
+[32m+[m[32m[1m--- a/contracts/MultiSigWallet.sol[m[m
+[32m+[m[32m[1m+++ b/contracts/MultiSigWallet.sol[m[m
+[32m+[m[32m[36m@@ -32,71 +32,64 @@[m [mcontract MultiSigWallet {[m[m
+[32m+[m[32m     address[] public owners;[m[m
+[32m+[m[32m     uint public required;[m[m
+[32m+[m[32m     uint public transactionCount;[m[m
+[32m+[m[32m[32m+[m[32m    uint24 public expiryDelay;[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m     struct Transaction {[m[m
+[32m+[m[32m         address destination;[m[m
+[32m+[m[32m         uint value;[m[m
+[32m+[m[32m         bytes data;[m[m
+[32m+[m[32m         bool executed;[m[m
+[32m+[m[32m[32m+[m[32m        uint timestamp;[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m     /*[m[m
+[32m+[m[32m      *  Modifiers[m[m
+[32m+[m[32m      */[m[m
+[32m+[m[32m     modifier onlyWallet() {[m[m
+[32m+[m[32m[31m-        if (msg.sender != address(this))[m[m
+[32m+[m[32m[31m-            throw;[m[m
+[32m+[m[32m[32m+[m[32m        require (msg.sender == address(this));[m[m
+[32m+[m[32m         _;[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m     modifier ownerDoesNotExist(address owner) {[m[m
+[32m+[m[32m[31m-        if (isOwner[owner])[m[m
+[32m+[m[32m[31m-            throw;[m[m
+[32m+[m[32m[32m+[m[32m        require (!isOwner[owner]);[m[m
+[32m+[m[32m         _;[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m     modifier ownerExists(address owner) {[m[m
+[32m+[m[32m[31m-        if (!isOwner[owner])[m[m
+[32m+[m[32m[31m-            throw;[m[m
+[32m+[m[32m[32m+[m[32m        require (isOwner[owner]);[m[m
+[32m+[m[32m         _;[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m     modifier transactionExists(uint transactionId) {[m[m
+[32m+[m[32m[31m-        if (transactions[transactionId].destination == 0)[m[m
+[32m+[m[32m[31m-            throw;[m[m
+[32m+[m[32m[32m+[m[32m        require (transactions[transactionId].destination > 0);[m[m
+[32m+[m[32m         _;[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m     modifier confirmed(uint transactionId, address owner) {[m[m
+[32m+[m[32m[31m-        if (!confirmations[transactionId][owner])[m[m
+[32m+[m[32m[31m-            throw;[m[m
+[32m+[m[32m[32m+[m[32m        require (confirmations[transactionId][owner]);[m[m
+[32m+[m[32m         _;[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m     modifier notConfirmed(uint transactionId, address owner) {[m[m
+[32m+[m[32m[31m-        if (confirmations[transactionId][owner])[m[m
+[32m+[m[32m[31m-            throw;[m[m
+[32m+[m[32m[32m+[m[32m        require (!confirmations[transactionId][owner]);[m[m
+[32m+[m[32m         _;[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m     modifier notExecuted(uint transactionId) {[m[m
+[32m+[m[32m[31m-        if (transactions[transactionId].executed)[m[m
+[32m+[m[32m[31m-            throw;[m[m
+[32m+[m[32m[32m+[m[32m        require (!transactions[transactionId].executed);[m[m
+[32m+[m[32m         _;[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m     modifier notNull(address _address) {[m[m
+[32m+[m[32m[31m-        if (_address == 0)[m[m
+[32m+[m[32m[31m-            throw;[m[m
+[32m+[m[32m[32m+[m[32m        require (_address != 0);[m[m
+[32m+[m[32m         _;[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m     modifier validRequirement(uint ownerCount, uint _required) {[m[m
+[32m+[m[32m[31m-        if (   ownerCount > MAX_OWNER_COUNT[m[m
+[32m+[m[32m[31m-            || _required > ownerCount[m[m
+[32m+[m[32m[31m-            || _required == 0[m[m
+[32m+[m[32m[31m-            || ownerCount == 0)[m[m
+[32m+[m[32m[31m-            throw;[m[m
+[32m+[m[32m[32m+[m[32m        require ( ownerCount <= MAX_OWNER_COUNT[m[m
+[32m+[m[32m[32m+[m[32m            && _required <= ownerCount[m[m
+[32m+[m[32m[32m+[m[32m            && _required > 0[m[m
+[32m+[m[32m[32m+[m[32m            && ownerCount > 0 );[m[m
+[32m+[m[32m         _;[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m[36m@@ -114,17 +107,15 @@[m [mcontract MultiSigWallet {[m[m
+[32m+[m[32m     /// @dev Contract constructor sets initial owners and required number of confirmations.[m[m
+[32m+[m[32m     /// @param _owners List of initial owners.[m[m
+[32m+[m[32m     /// @param _required Number of required confirmations.[m[m
+[32m+[m[32m[31m-    function MultiSigWallet(address[] _owners, uint _required)[m[m
+[32m+[m[32m[31m-        public[m[m
+[32m+[m[32m[31m-        validRequirement(_owners.length, _required)[m[m
+[32m+[m[32m[31m-    {[m[m
+[32m+[m[32m[31m-        for (uint i=0; i<_owners.length; i++) {[m[m
+[32m+[m[32m[31m-            if (isOwner[_owners[i]] || _owners[i] == 0)[m[m
+[32m+[m[32m[31m-                throw;[m[m
+[32m+[m[32m[32m+[m[32m    function MultiSigWallet(address[] _owners, uint _required, uint24 _expiryDelay)[m[m
+[32m+[m[32m[32m+[m[32m            validRequirement(_owners.length, _required) {[m[m
+[32m+[m[32m[32m+[m[32m        for (uint i = 0; i < _owners.length; i++) {[m[m
+[32m+[m[32m[32m+[m[32m            require (!isOwner[_owners[i]] && _owners[i] != address(0));[m[m
+[32m+[m[32m             isOwner[_owners[i]] = true;[m[m
+[32m+[m[32m         }[m[m
+[32m+[m[32m         owners = _owners;[m[m
+[32m+[m[32m         required = _required;[m[m
+[32m+[m[32m[32m+[m[32m        expiryDelay = _expiryDelay;[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m     /// @dev Allows to add a new owner. Transaction has to be sent by wallet.[m[m
+[32m+[m[32m[36m@@ -237,16 +228,25 @@[m [mcontract MultiSigWallet {[m[m
+[32m+[m[32m         confirmed(transactionId, msg.sender)[m[m
+[32m+[m[32m         notExecuted(transactionId)[m[m
+[32m+[m[32m     {[m[m
+[32m+[m[32m[31m-        if (isConfirmed(transactionId)) {[m[m
+[32m+[m[32m[31m-            Transaction tx = transactions[transactionId];[m[m
+[32m+[m[32m[31m-            tx.executed = true;[m[m
+[32m+[m[32m[31m-            if (tx.destination.call.value(tx.value)(tx.data))[m[m
+[32m+[m[32m[32m+[m[32m        Transaction storage trx = transactions[transactionId];[m[m
+[32m+[m[32m[32m+[m[32m        // check that the expiry deadline has not passed and everyone has confirmed[m[m
+[32m+[m[32m[32m+[m[32m        if (isConfirmed(transactionId) && hasNotExpired(transactionId)) {[m[m
+[32m+[m[32m[32m+[m[32m            trx.executed = true;[m[m
+[32m+[m[32m[32m+[m[32m            if (trx.destination.call.value(trx.value)(trx.data)){[m[m
+[32m+[m[32m                 Execution(transactionId);[m[m
+[32m+[m[32m[31m-            else {[m[m
+[32m+[m[32m[31m-                ExecutionFailure(transactionId);[m[m
+[32m+[m[32m[31m-                tx.executed = false;[m[m
+[32m+[m[32m[32m+[m[32m                return;[m[m
+[32m+[m[32m             }[m[m
+[32m+[m[32m         }[m[m
+[32m+[m[32m[32m+[m[32m        ExecutionFailure(transactionId);[m[m
+[32m+[m[32m[32m+[m[32m    }[m[m
+[32m+[m[32m[32m+[m[m
+[32m+[m[32m[32m+[m[32m    function expiryDetails(uint transactionId) constant returns (uint now_, uint delay_) {[m[m
+[32m+[m[32m[32m+[m[32m        now_ = now;[m[m
+[32m+[m[32m[32m+[m[32m        delay_ = transactions[transactionId].timestamp + expiryDelay;[m[m
+[32m+[m[32m[32m+[m[32m    }[m[m
+[32m+[m[32m[32m+[m[m
+[32m+[m[32m[32m+[m[32m    function hasNotExpired(uint transactionId) constant returns(bool) {[m[m
+[32m+[m[32m[32m+[m[32m        return now < transactions[transactionId].timestamp + expiryDelay;[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m     /// @dev Returns the confirmation status of a transaction.[m[m
+[32m+[m[32m[36m@@ -257,6 +257,9 @@[m [mcontract MultiSigWallet {[m[m
+[32m+[m[32m         constant[m[m
+[32m+[m[32m         returns (bool)[m[m
+[32m+[m[32m     {[m[m
+[32m+[m[32m[32m+[m[32m        /*no confirmation after expiry*/[m[m
+[32m+[m[32m[32m+[m[m
+[32m+[m[32m[32m+[m[32m        /*check for confirmation count*/[m[m
+[32m+[m[32m         uint count = 0;[m[m
+[32m+[m[32m         for (uint i=0; i<owners.length; i++) {[m[m
+[32m+[m[32m             if (confirmations[transactionId][owners[i]])[m[m
+[32m+[m[32m[36m@@ -284,7 +287,8 @@[m [mcontract MultiSigWallet {[m[m
+[32m+[m[32m             destination: destination,[m[m
+[32m+[m[32m             value: value,[m[m
+[32m+[m[32m             data: data,[m[m
+[32m+[m[32m[31m-            executed: false[m[m
+[32m+[m[32m[32m+[m[32m            executed: false,[m[m
+[32m+[m[32m[32m+[m[32m            timestamp: now[m[m
+[32m+[m[32m         });[m[m
+[32m+[m[32m         transactionCount += 1;[m[m
+[32m+[m[32m         Submission(transactionId);[m[m
+[32m+[m[32m[1mdiff --git a/contracts/MultiSigWalletFactory.sol b/contracts/MultiSigWalletFactory.sol[m[m
+[32m+[m[32m[1mindex ed6ed81..3ed2106 100644[m[m
+[32m+[m[32m[1m--- a/contracts/MultiSigWalletFactory.sol[m[m
+[32m+[m[32m[1m+++ b/contracts/MultiSigWalletFactory.sol[m[m
+[32m+[m[32m[36m@@ -1,4 +1,5 @@[m[m
+[32m+[m[32m pragma solidity 0.4.15;[m[m
+[32m+[m[32m[32m+[m[m
+[32m+[m[32m import "./Factory.sol";[m[m
+[32m+[m[32m import "./MultiSigWallet.sol";[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m[36m@@ -7,6 +8,12 @@[m [mimport "./MultiSigWallet.sol";[m[m
+[32m+[m[32m /// @author Stefan George - <stefan.george@consensys.net>[m[m
+[32m+[m[32m contract MultiSigWalletFactory is Factory {[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m[32m+[m[32m    bool public prod = false;[m[m
+[32m+[m[32m[32m+[m[m
+[32m+[m[32m[32m+[m[32m    function MultiSigWalletFactory(bool prod_) {[m[m
+[32m+[m[32m[32m+[m[32m        prod = prod_;[m[m
+[32m+[m[32m[32m+[m[32m    }[m[m
+[32m+[m[32m[32m+[m[m
+[32m+[m[32m     /*[m[m
+[32m+[m[32m      * Public functions[m[m
+[32m+[m[32m      */[m[m
+[32m+[m[32m[36m@@ -18,7 +25,9 @@[m [mcontract MultiSigWalletFactory is Factory {[m[m
+[32m+[m[32m         public[m[m
+[32m+[m[32m         returns (address wallet)[m[m
+[32m+[m[32m     {[m[m
+[32m+[m[32m[31m-        wallet = new MultiSigWallet(_owners, _required);[m[m
+[32m+[m[32m[32m+[m[32m        uint24 delay = 120;[m[m
+[32m+[m[32m[32m+[m[32m        if(prod) delay = 15 * 24 * 3600;[m[m
+[32m+[m[32m[32m+[m[32m        wallet = new MultiSigWallet(_owners, _required, delay);[m[m
+[32m+[m[32m         register(wallet);[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m }[m[m
+[32m+[m[32m[1mdiff --git a/contracts/MultiSigWalletWithDailyLimit.sol b/contracts/MultiSigWalletWithDailyLimit.sol[m[m
+[32m+[m[32m[1mindex 683b3ad..4334eae 100644[m[m
+[32m+[m[32m[1m--- a/contracts/MultiSigWalletWithDailyLimit.sol[m[m
+[32m+[m[32m[1m+++ b/contracts/MultiSigWalletWithDailyLimit.sol[m[m
+[32m+[m[32m[36m@@ -1,4 +1,6 @@[m[m
+[32m+[m[32m pragma solidity 0.4.15;[m[m
+[32m+[m[32m[32m+[m[m
+[32m+[m[32m[32m+[m[m
+[32m+[m[32m import "./MultiSigWallet.sol";[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m [m[m
+[32m+[m[32m[36m@@ -15,7 +17,9 @@[m [mcontract MultiSigWalletWithDailyLimit is MultiSigWallet {[m[m
+[32m+[m[32m      *  Storage[m[m
+[32m+[m[32m      */[m[m
+[32m+[m[32m     uint public dailyLimit;[m[m
+[32m+[m[32m[32m+[m[m
+[32m+[m[32m     uint public lastDay;[m[m
+[32m+[m[32m[32m+[m[m
+[32m+[m[32m     uint public spentToday;[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m     /*[m[m
+[32m+[m[32m[36m@@ -25,19 +29,15 @@[m [mcontract MultiSigWalletWithDailyLimit is MultiSigWallet {[m[m
+[32m+[m[32m     /// @param _owners List of initial owners.[m[m
+[32m+[m[32m     /// @param _required Number of required confirmations.[m[m
+[32m+[m[32m     /// @param _dailyLimit Amount in wei, which can be withdrawn without confirmations on a daily basis.[m[m
+[32m+[m[32m[31m-    function MultiSigWalletWithDailyLimit(address[] _owners, uint _required, uint _dailyLimit)[m[m
+[32m+[m[32m[31m-        public[m[m
+[32m+[m[32m[31m-        MultiSigWallet(_owners, _required)[m[m
+[32m+[m[32m[32m+[m[32m    function MultiSigWalletWithDailyLimit(address[] _owners, uint _required, uint _dailyLimit, uint24 _expiryDelay)[m[m
+[32m+[m[32m[32m+[m[32m    MultiSigWallet(_owners, _required, _expiryDelay)[m[m
+[32m+[m[32m     {[m[m
+[32m+[m[32m         dailyLimit = _dailyLimit;[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m     /// @dev Allows to change the daily limit. Transaction has to be sent by wallet.[m[m
+[32m+[m[32m     /// @param _dailyLimit Amount in wei.[m[m
+[32m+[m[32m[31m-    function changeDailyLimit(uint _dailyLimit)[m[m
+[32m+[m[32m[31m-        public[m[m
+[32m+[m[32m[31m-        onlyWallet[m[m
+[32m+[m[32m[31m-    {[m[m
+[32m+[m[32m[32m+[m[32m    function changeDailyLimit(uint _dailyLimit) onlyWallet {[m[m
+[32m+[m[32m         dailyLimit = _dailyLimit;[m[m
+[32m+[m[32m         DailyLimitChange(_dailyLimit);[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m[36m@@ -45,24 +45,24 @@[m [mcontract MultiSigWalletWithDailyLimit is MultiSigWallet {[m[m
+[32m+[m[32m     /// @dev Allows anyone to execute a confirmed transaction or ether withdraws until daily limit is reached.[m[m
+[32m+[m[32m     /// @param transactionId Transaction ID.[m[m
+[32m+[m[32m     function executeTransaction(uint transactionId)[m[m
+[32m+[m[32m[31m-        public[m[m
+[32m+[m[32m         ownerExists(msg.sender)[m[m
+[32m+[m[32m         confirmed(transactionId, msg.sender)[m[m
+[32m+[m[32m         notExecuted(transactionId)[m[m
+[32m+[m[32m     {[m[m
+[32m+[m[32m[31m-        Transaction tx = transactions[transactionId];[m[m
+[32m+[m[32m[32m+[m[32m        Transaction storage trx = transactions[transactionId];[m[m
+[32m+[m[32m         bool _confirmed = isConfirmed(transactionId);[m[m
+[32m+[m[32m[31m-        if (_confirmed || tx.data.length == 0 && isUnderLimit(tx.value)) {[m[m
+[32m+[m[32m[31m-            tx.executed = true;[m[m
+[32m+[m[32m[32m+[m[32m        if (hasNotExpired(transactionId) && (_confirmed || trx.data.length == 0 && isUnderLimit(trx.value))) {[m[m
+[32m+[m[32m[32m+[m[32m            trx.executed = true;[m[m
+[32m+[m[32m             if (!_confirmed)[m[m
+[32m+[m[32m[31m-                spentToday += tx.value;[m[m
+[32m+[m[32m[31m-            if (tx.destination.call.value(tx.value)(tx.data))[m[m
+[32m+[m[32m[32m+[m[32m                spentToday += trx.value;[m[m
+[32m+[m[32m[32m+[m[m
+[32m+[m[32m[32m+[m[32m            if (trx.destination.call.value(trx.value)(trx.data))[m[m
+[32m+[m[32m                 Execution(transactionId);[m[m
+[32m+[m[32m             else {[m[m
+[32m+[m[32m                 ExecutionFailure(transactionId);[m[m
+[32m+[m[32m[31m-                tx.executed = false;[m[m
+[32m+[m[32m[32m+[m[32m                trx.executed = false;[m[m
+[32m+[m[32m                 if (!_confirmed)[m[m
+[32m+[m[32m[31m-                    spentToday -= tx.value;[m[m
+[32m+[m[32m[32m+[m[32m                    spentToday -= trx.value;[m[m
+[32m+[m[32m             }[m[m
+[32m+[m[32m         }[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m[36m@@ -74,8 +74,8 @@[m [mcontract MultiSigWalletWithDailyLimit is MultiSigWallet {[m[m
+[32m+[m[32m     /// @param amount Amount to withdraw.[m[m
+[32m+[m[32m     /// @return Returns if amount is under daily limit.[m[m
+[32m+[m[32m     function isUnderLimit(uint amount)[m[m
+[32m+[m[32m[31m-        internal[m[m
+[32m+[m[32m[31m-        returns (bool)[m[m
+[32m+[m[32m[32m+[m[32m    internal[m[m
+[32m+[m[32m[32m+[m[32m    returns (bool)[m[m
+[32m+[m[32m     {[m[m
+[32m+[m[32m         if (now > lastDay + 24 hours) {[m[m
+[32m+[m[32m             lastDay = now;[m[m
+[32m+[m[32m[36m@@ -91,15 +91,12 @@[m [mcontract MultiSigWalletWithDailyLimit is MultiSigWallet {[m[m
+[32m+[m[32m      */[m[m
+[32m+[m[32m     /// @dev Returns maximum withdraw amount.[m[m
+[32m+[m[32m     /// @return Returns amount.[m[m
+[32m+[m[32m[31m-    function calcMaxWithdraw()[m[m
+[32m+[m[32m[31m-        public[m[m
+[32m+[m[32m[31m-        constant[m[m
+[32m+[m[32m[31m-        returns (uint)[m[m
+[32m+[m[32m[32m+[m[32m    function calcMaxWithdraw() constant returns (uint)[m[m
+[32m+[m[32m     {[m[m
+[32m+[m[32m         if (now > lastDay + 24 hours)[m[m
+[32m+[m[32m[31m-            return dailyLimit;[m[m
+[32m+[m[32m[32m+[m[32m        return dailyLimit;[m[m
+[32m+[m[32m         if (dailyLimit < spentToday)[m[m
+[32m+[m[32m[31m-            return 0;[m[m
+[32m+[m[32m[32m+[m[32m        return 0;[m[m
+[32m+[m[32m         return dailyLimit - spentToday;[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m }[m[m
+[32m+[m[32m[1mdiff --git a/contracts/MultiSigWalletWithDailyLimitFactory.sol b/contracts/MultiSigWalletWithDailyLimitFactory.sol[m[m
+[32m+[m[32m[1mindex 0614c66..84bf75d 100644[m[m
+[32m+[m[32m[1m--- a/contracts/MultiSigWalletWithDailyLimitFactory.sol[m[m
+[32m+[m[32m[1m+++ b/contracts/MultiSigWalletWithDailyLimitFactory.sol[m[m
+[32m+[m[32m[36m@@ -1,4 +1,5 @@[m[m
+[32m+[m[32m pragma solidity 0.4.15;[m[m
+[32m+[m[32m[32m+[m[m
+[32m+[m[32m import "./Factory.sol";[m[m
+[32m+[m[32m import "./MultiSigWalletWithDailyLimit.sol";[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m[36m@@ -6,6 +7,11 @@[m [mimport "./MultiSigWalletWithDailyLimit.sol";[m[m
+[32m+[m[32m /// @title Multisignature wallet factory for daily limit version - Allows creation of multisig wallet.[m[m
+[32m+[m[32m /// @author Stefan George - <stefan.george@consensys.net>[m[m
+[32m+[m[32m contract MultiSigWalletWithDailyLimitFactory is Factory {[m[m
+[32m+[m[32m[32m+[m[32m    bool public prod = false;[m[m
+[32m+[m[32m[32m+[m[m
+[32m+[m[32m[32m+[m[32m    function MultiSigWalletWithDailyLimitFactory(bool prod_) {[m[m
+[32m+[m[32m[32m+[m[32m        prod = prod_;[m[m
+[32m+[m[32m[32m+[m[32m    }[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m     /*[m[m
+[32m+[m[32m      * Public functions[m[m
+[32m+[m[32m[36m@@ -16,10 +22,12 @@[m [mcontract MultiSigWalletWithDailyLimitFactory is Factory {[m[m
+[32m+[m[32m     /// @param _dailyLimit Amount in wei, which can be withdrawn without confirmations on a daily basis.[m[m
+[32m+[m[32m     /// @return Returns wallet address.[m[m
+[32m+[m[32m     function create(address[] _owners, uint _required, uint _dailyLimit)[m[m
+[32m+[m[32m[31m-        public[m[m
+[32m+[m[32m[32m+[m[m
+[32m+[m[32m         returns (address wallet)[m[m
+[32m+[m[32m     {[m[m
+[32m+[m[32m[31m-        wallet = new MultiSigWalletWithDailyLimit(_owners, _required, _dailyLimit);[m[m
+[32m+[m[32m[32m+[m[32m        uint24 delay = 120;[m[m
+[32m+[m[32m[32m+[m[32m        if(prod) delay = 15 * 24 * 3600;[m[m
+[32m+[m[32m[32m+[m[32m        wallet = new MultiSigWalletWithDailyLimit(_owners, _required, _dailyLimit, delay);[m[m
+[32m+[m[32m         register(wallet);[m[m
+[32m+[m[32m     }[m[m
+[32m+[m[32m }[m[m
+[32m+[m[32m[1mdiff --git a/contracts/TestToken.sol b/contracts/TestToken.sol[m[m
+[32m+[m[32m[1mindex 2620e3c..103a4fd 100644[m[m
+[32m+[m[32m[1m--- a/contracts/TestToken.sol[m[m
+[32m+[m[32m[1m+++ b/contracts/TestToken.sol[m[m
+[32m+[m[32m[36m@@ -1,6 +1,5 @@[m[m
+[32m+[m[32m pragma solidity 0.4.15;[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m[31m-[m[m
+[32m+[m[32m /// @title Test token contract - Allows testing of token transfers with multisig wallet.[m[m
+[32m+[m[32m contract TestToken {[m[m
+[32m+[m[32m [m[m
+[32m+[m[32m[36m@@ -45,9 +44,8 @@[m [mcontract TestToken {[m[m
+[32m+[m[32m         public[m[m
+[32m+[m[32m         returns (bool success)[m[m
+[32m+[m[32m     {[m[m
+[32m+[m[32m[31m-        if (balances[msg.sender] < _value) {[m[m
+[32m+[m[32m[31m-            throw;[m[m
+[32m+[m[32m[31m-        }[m[m
+[32m+[m[32m[32m+[m[32m        require (balances[msg.sender] >= _value);[m[m
+[32m+[m[32m[32m+[m[m
+[32m+[m[32m         balances[msg.sender] -= _value;[m[m
+[32m+[m[32m         balances[_to] += _value;[m[m
+[32m+[m[32m         Transfer(msg.sender, _to, _value);[m[m
+[32m+[m[32m[36m@@ -63,9 +61,7 @@[m [mcontract TestToken {[m[m
+[32m+[m[32m         public[m[m
+[32m+[m[32m         returns (bool success)[m[m
+[32m+[m[32m     {[m[m
+[32m+[m[32m[31m-        if (balances[_from] < _value || allowed[_from][msg.sender] < _value) {[m[m
+[32m+[m[32m[31m-            throw;[m[m
+[32m+[m[32m[31m-        }[m[m
+[32m+[m[32m[32m+[m[32m        require (balances[_from] >= _value && allowed[_from][msg.sender] >= _value);[m[m
+[32m+[m[41m      [m
+\ No newline at end of file[m
+[1mdiff --git a/migrations/2_deploy_contracts.js b/migrations/2_deploy_contracts.js[m
+[1mindex d32b555..26b6ce0 100644[m
+[1m--- a/migrations/2_deploy_contracts.js[m
+[1m+++ b/migrations/2_deploy_contracts.js[m
+[36m@@ -1,20 +1,14 @@[m
+ const MultisigWalletWithDailyLimit = artifacts.require('MultiSigWalletWithDailyLimit.sol')[m
+[31m-const MultisigWalletWithoutDailyLimit = artifacts.require('MultiSigWallet.sol')[m
+[32m+[m[32mconst MultisigWallet = artifacts.require('MultiSigWallet.sol')[m
+ const MultisigWalletFactory = artifacts.require('MultiSigWalletWithDailyLimitFactory.sol')[m
+ [m
+ module.exports = deployer => {[m
+[31m-  const args = process.argv.slice()[m
+[31m-  if (process.env.DEPLOY_FACTORY){[m
+[31m-    deployer.deploy(MultisigWalletFactory)[m
+[31m-    console.log("Factory with Daily Limit deployed")[m
+[31m-  } else if (args.length < 5) {[m
+[31m-    console.error("Multisig with daily limit requires to pass owner " +[m
+[31m-      "list, required confirmations and daily limit")[m
+[31m-  } else if (args.length < 6) {[m
+[31m-    deployer.deploy(MultisigWalletWithoutDailyLimit, args[3].split(","), args[4])[m
+[31m-    console.log("Wallet deployed")[m
+[31m-  } else {[m
+[31m-    deployer.deploy(MultisigWalletWithDailyLimit, args[3].split(","), args[4], args[5])[m
+[31m-    console.log("Wallet with Daily Limit deployed")[m
+[31m-  }[m
+[32m+[m[32m  deployer.deploy(MultisigWalletFactory, true)[m
+[32m+[m[32m/*[m
+[32m+[m[32m  deployer.deploy(MultisigWallet,[m
+[32m+[m[32m    ["0x0f21f6fb13310ac0e17205840a91da93119efbec", "0xe2f8a351678d4264df0522d3d61d83258ce83daf"], 2, false)[m
+[32m+[m[32m  deployer.deploy(MultisigWalletWithDailyLimit,[m
+[32m+[m[32m    ["0x0f21f6fb13310ac0e17205840a91da93119efbec", "0xe2f8a351678d4264df0522d3d61d83258ce83daf"],[m
+[32m+[m[32m    2, 3000, false)[m
+[32m+[m[32m*/[m
+ }[m
+[1mdiff --git a/run-trpc.sh b/run-trpc.sh[m
+[1mnew file mode 100755[m
+[1mindex 0000000..972dd90[m
+[1m--- /dev/null[m
+[1m+++ b/run-trpc.sh[m
+[36m@@ -0,0 +1,3 @@[m
+[32m+[m[32m#!/usr/bin/env bash[m
+[32m+[m
+[32m+[m[32mtestrpc --port 9545 --network-id 12 --gasLimit 0x4C4B40  --account="0xfdb2886b1ff5a0e60f9a4684e385aa7b77f064730304143f08ba96ca1a17effa,100000000000000000000000000" --account="0x38712cee7ace9c96181cc6a31f55fac50b3ff005d7c1bfa0c3a0121c8fc4b1c2,100000000000000000000000000" --account="0x59983eb3692f525def24c283b775973112d67d30589fa63798dfd70cea82467d,100000000000000000000000000" --account="0xf09a07170897bec0ce50e45ac28f70288e4dd7e9f687cf9d04556554db59a07e,100000000000000000000000000" --account="0xd7ad15ff5b4b8f50bbf6472e15bca78e4d00ead8a2c74da12d18c51c7b2d3d93,100000000000000000000000000" --account="0x21637e41ea5ec2c0a08c734ddcf4fd3fc01eaa7618b412e09b76f86808cb4dd8,100000000000000000000000000" --account="0x75986d9e701e574e888ed76bf084e7a15bcae8c203a84136e64e3ce18ab62b85,100000000000000000000000000" --account="0xb3547fac81fa0d4b553d3c6637f60eb143159d434d3a0ea9ba44a5c5df192c4c,100000000000000000000000000" --account="0x29469148b567bb0142b4e33c518d833c77ef36b3894b56c7291bed448c943a03,100000000000000000000000000" --account="0x4a18b85b882a4eeced0688076397543a601f512225544815abd3c81a3f18fd79,100000000000000000000000000" --account="0x80aa790cf2af4305b9b963877e773a49840a1480e381a308d22ab68e226749b7,100000000000000000000000000" --account="0xeaf6688522ecc4d647b5d73bc3e8193196b69344dde30abdaf3ff0e2165f4bb9,100000000000000000000000000" --account="0x8d8697970c933b856a02c5c2a9e1ead92b434d6cb724a0635219a1568a4cfd51,100000000000000000000000000" --account="0xfad94aef02359239b6c4d2ea412e3f60753d0b2cead4634846ba6e098716e965,100000000000000000000000000" --account="0x168b4e20066d658378e6a7458a6e7f27c93b30657b82be65d1f3466fef720512,100000000000000000000000000" --account="0xb95ae04b0195acc5f9ab7b9bc5876e8ef47fc775f101e274ef9b074e283b35e7,100000000000000000000000000" --account="0xe079bec86d162477bfc1562f4574af45eb5d25f0444c6cc9eb52da7ce22950f7,100000000000000000000000000" --account="0x78558ca27347ebfc0b6a6bed3269b996d6abb0df33d98940184d20f0b60cc42e,100000000000000000000000000"[m
+[1mdiff --git a/test/javascript/testExecutionAfterRequirementsChanged.js b/test/javascript/testExecutionAfterRequirementsChanged.js[m
+[1mindex a134323..e4c9b93 100644[m
+[1m--- a/test/javascript/testExecutionAfterRequirementsChanged.js[m
+[1m+++ b/test/javascript/testExecutionAfterRequirementsChanged.js[m
+[36m@@ -1,7 +1,7 @@[m
+ const MultiSigWallet = artifacts.require('MultiSigWallet')[m
+ const web3 = MultiSigWallet.web3[m
+ const deployMultisig = (owners, confirmations) => {[m
+[31m-    return MultiSigWallet.new(owners, confirmations)[m
+[32m+[m[32m    return MultiSigWallet.new(owners, confirmations, 120)[m
+ }[m
+ [m
+ const utils = require('./utils')[m
+[1mdiff --git a/test/javascript/testExpiryLimit.js b/test/javascript/testExpiryLimit.js[m
+[1mnew file mode 100644[m
+[1mindex 0000000..ed32ba7[m
+[1m--- /dev/null[m
+[1m+++ b/test/javascript/testExpiryLimit.js[m
+[36m@@ -0,0 +1,59 @@[m
+[32m+[m[32mconst MultiSigWalletWithDailyLimit = artifacts.require('MultiSigWalletWithDailyLimit')[m
+[32m+[m
+[32m+[m[32mconst utils = require('./utils')[m
+[32m+[m[32mconst ONE_DAY = 24 * 3600[m
+[32m+[m
+[32m+[m[32mcontract('ExpiringMultiSigWalletWithDailyLimit', (accounts) => {[m
+[32m+[m[32m  let msw // multi sig wallet[m
+[32m+[m[32m  const dailyLimit = 3e22[m
+[32m+[m[32m  const requiredConfirmations = 2[m
+[32m+[m[32m  const expiryDelay = 60[m
+[32m+[m
+[32m+[m[32m  const deployMultisig = (owners, confirmations, limit) => {[m
+[32m+[m[32m    // set a 5 second delay before a transaction expires[m
+[32m+[m[32m    return MultiSigWalletWithDailyLimit.new(owners, confirmations, limit, expiryDelay)[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  before(async () => {[m
+[32m+[m[32m    msw = await deployMultisig([accounts[0], accounts[1]], requiredConfirmations, dailyLimit)[m
+[32m+[m[32m    assert.ok(msw)[m
+[32m+[m[32m  })[m
+[32m+[m
+[32m+[m[32m  it('has an expiry time of 5 seconds and a daily limit of 3\'000 ETH', async () => {[m
+[32m+[m[32m    assert.equal(expiryDelay, (await msw.expiryDelay()).toNumber())[m
+[32m+[m[32m    assert.equal(3e22, (await msw.dailyLimit()).toNumber())[m
+[32m+[m[32m  })[m
+[32m+[m
+[32m+[m[32m  it('executes the daily limit transaction immediately', async () => {[m
+[32m+[m[32m    let tx = await web3.eth.sendTransaction({from: accounts[5], to: msw.address, value: 1e24})[m
+[32m+[m[32m    assert.equal(1e24, web3.eth.getBalance(msw.address))[m
+[32m+[m
+[32m+[m[32m    await msw.submitTransaction(accounts[5], 3e22, "", {from: accounts[1]})[m
+[32m+[m[32m    tx = await msw.transactions(0)[m
+[32m+[m[32m    assert.ok(tx[3], "transaction executed right away")[m
+[32m+[m[32m  })[m
+[32m+[m
+[32m+[m[32m  it('executes a transaction after all confirmatino have been received within the delay', async () => {[m
+[32m+[m[32m    await msw.submitTransaction(accounts[5], 3e22, "", {from: accounts[0]})[m
+[32m+[m[32m    const txNum = (await msw.transactionCount()).sub(1).toNumber()[m
+[32m+[m[32m    assert.equal(1, txNum)[m
+[32m+[m[32m    assert.ok(await msw.hasNotExpired(txNum))[m
+[32m+[m[32m    await msw.confirmTransaction(txNum, {from: accounts[1]})[m
+[32m+[m
+[32m+[m[32m    let tx = await msw.transactions(txNum)[m
+[32m+[m[32m    assert.ok(tx[3], "transaction executed right away")[m
+[32m+[m[32m  })[m
+[32m+[m
+[32m+[m[32m  it('fails to execute a transaction after all confirmatino have been received after the delay', async () => {[m
+[32m+[m[32m    await msw.submitTransaction(accounts[5], 3e22, "", {from: accounts[0]})[m
+[32m+[m[32m    const txNum = (await msw.transactionCount()).sub(1).toNumber()[m
+[32m+[m[32m    assert.ok(await msw.hasNotExpired(txNum))[m
+[32m+[m[32m    await utils.increaseTimestamp(web3, expiryDelay + 1)[m
+[32m+[m[32m    await msw.confirmTransaction(txNum, {from: accounts[1]})[m
+[32m+[m
+[32m+[m[32m    let tx = await msw.transactions(txNum)[m
+[32m+[m[32m    assert.notOk(tx[3], "transaction executed right away")[m
+[32m+[m
+[32m+[m[32m  })[m
+[32m+[m
+[32m+[m[32m})[m
+\ No newline at end of file[m
+[1mdiff --git a/test/javascript/testMultiSigWalletWithDailyLimit.js b/test/javascript/testMultiSigWalletWithDailyLimit.js[m
+[1mindex a98c542..ae174b5 100644[m
+[1m--- a/test/javascript/testMultiSigWalletWithDailyLimit.js[m
+[1m+++ b/test/javascript/testMultiSigWalletWithDailyLimit.js[m
+[36m@@ -1,169 +1,182 @@[m
+ const MultiSigWalletWithDailyLimit = artifacts.require('MultiSigWalletWithDailyLimit')[m
+ const web3 = MultiSigWalletWithDailyLimit.web3[m
+ const deployMultisig = (owners, confirmations, limit) => {[m
+[31m-    return MultiSigWalletWithDailyLimit.new(owners, confirmations, limit)[m
+[32m+[m[32m  return MultiSigWalletWithDailyLimit.new(owners, confirmations, limit, 120)[m
+ }[m
+ [m
+ const utils = require('./utils')[m
+[31m-const ONE_DAY = 24*3600[m
+[32m+[m[32mconst ONE_DAY = 24 * 3600[m
+ [m
+ contract('MultiSigWalletWithDailyLimit', (accounts) => {[m
+[31m-    let multisigInstance[m
+[31m-    const dailyLimit = 3000[m
+[31m-    const requiredConfirmations = 2[m
+[31m-[m
+[31m-    beforeEach(async () => {[m
+[31m-        multisigInstance = await deployMultisig([accounts[0], accounts[1]], requiredConfirmations, dailyLimit)[m
+[31m-        assert.ok(multisigInstance)[m
+[31m-    })[m
+[31m-[m
+[31m-    it('create multisig', async () => {[m
+[31m-        const deposit = 10000[m
+[31m-        [m
+[31m-        // Send money to wallet contract[m
+[31m-        await new Promise((resolve, reject) => web3.eth.sendTransaction({to: multisigInstance.address, value: deposit, from: accounts[0]}, e => (e ? reject(e) : resolve())))[m
+[31m-        const balance = await utils.balanceOf(web3, multisigInstance.address)[m
+[31m-        assert.equal(balance.valueOf(), deposit)[m
+[31m-        assert.equal(dailyLimit, await multisigInstance.dailyLimit())[m
+[31m-        assert.equal(dailyLimit, await multisigInstance.calcMaxWithdraw())[m
+[31m-[m
+[31m-        // Withdraw daily limit[m
+[31m-        const value1 = 2000[m
+[31m-        let owner1Balance = await utils.balanceOf(web3, accounts[0])[m
+[31m-        await multisigInstance.submitTransaction(accounts[0], value1, "", {from: accounts[1]})[m
+[31m-        assert.equal([m
+[31m-            owner1Balance.add(value1).toString(),[m
+[31m-            (await utils.balanceOf(web3, accounts[0])).toString()[m
+[31m-        )[m
+[31m-        assert.equal([m
+[31m-            balance.sub(value1).toString(),[m
+[31m-            (await utils.balanceOf(web3, multisigInstance.address)).toString()[m
+[31m-        )[m
+[31m-[m
+[31m-        // Update daily limit[m
+[31m-        const dailyLimitUpdated = 2000[m
+[31m-        const dailyLimitEncoded = multisigInstance.contract.changeDailyLimit.getData(dailyLimitUpdated)[m
+[31m-        const transactionId = utils.getParamFromTxEvent([m
+[31m-            await multisigInstance.submitTransaction(multisigInstance.address, 0, dailyLimitEncoded, {from: accounts[0]}),[m
+[31m-            'transactionId', null, 'Submission')[m
+[31m-        [m
+[31m-        await multisigInstance.confirmTransaction(transactionId, {from: accounts[1]})[m
+[31m-        assert.equal(dailyLimitUpdated, await multisigInstance.dailyLimit())[m
+[31m-        assert.equal(0, await multisigInstance.calcMaxWithdraw())[m
+[31m-[m
+[31m-        await utils.increaseTimestamp(web3, ONE_DAY+1)[m
+[31m-        assert.equal(dailyLimitUpdated, (await multisigInstance.calcMaxWithdraw()).toNumber())[m
+[31m-[m
+[31m-        // Withdraw daily limit[m
+[31m-        const value2 = 1000[m
+[31m-        owner1Balance = await utils.balanceOf(web3, accounts[0])[m
+[31m-        await multisigInstance.submitTransaction(accounts[0], value2, "", {from: accounts[1]})[m
+[31m-        assert.equal([m
+[31m-            owner1Balance.add(value2).toString(),[m
+[31m-            (await utils.balanceOf(web3, accounts[0])).toString()[m
+[31m-        )[m
+[31m-        assert.equal([m
+[31m-            deposit-value2-value1,[m
+[31m-            await utils.balanceOf(web3, multisigInstance.address)[m
+[31m-        )[m
+[31m-        assert.equal([m
+[31m-            dailyLimitUpdated - value2,[m
+[31m-            await multisigInstance.calcMaxWithdraw()[m
+[31m-        )[m
+[31m-        await multisigInstance.submitTransaction(accounts[0], value2, "", {from: accounts[1]})[m
+[31m-        assert.equal([m
+[31m-            owner1Balance.add(value2*2).toString(),[m
+[31m-            (await utils.balanceOf(web3, accounts[0])).toString()[m
+[31m-        )[m
+[31m-        assert.equal([m
+[31m-            deposit-value2*2-value1,[m
+[31m-            await utils.balanceOf(web3, multisigInstance.address)[m
+[31m-        )[m
+[31m-        assert.equal([m
+[31m-            dailyLimitUpdated - value2*2,[m
+[31m-            await multisigInstance.calcMaxWithdraw()[m
+[31m-        )[m
+[31m-[m
+[31m-        // Third time fails, because daily limit was reached[m
+[31m-        const transactionIdFailed = utils.getParamFromTxEvent([m
+[31m-            await multisigInstance.submitTransaction(accounts[0], value2, "", {from: accounts[1]}),[m
+[31m-            'transactionId', null, 'Submission')[m
+[31m-        assert.equal(false, (await multisigInstance.transactions(transactionIdFailed))[3])[m
+[31m-        assert.equal([m
+[31m-            owner1Balance.add(value2*2).toString(),[m
+[31m-            (await utils.balanceOf(web3, accounts[0])).toString()[m
+[31m-        )[m
+[31m-        assert.equal([m
+[31m-            deposit-value2*2-value1,[m
+[31m-            await utils.balanceOf(web3, multisigInstance.address)[m
+[31m-        )[m
+[31m-        assert.equal([m
+[31m-            0,[m
+[31m-            await multisigInstance.calcMaxWithdraw()[m
+[31m-        )[m
+[31m-        [m
+[31m-        // Let one day pass[m
+[31m-        await utils.increaseTimestamp(web3, ONE_DAY+1)[m
+[31m-        assert.equal(dailyLimitUpdated, (await multisigInstance.calcMaxWithdraw()).toNumber())[m
+[31m-[m
+[31m-        // Execute transaction should work now but fails, because it is triggered from a non owner address[m
+[31m-        utils.assertThrowsAsynchronously([m
+[31m-            () => multisigInstance.executeTransaction(transactionIdFailed, {from: accounts[9]})[m
+[31m-        )[m
+[31m-        // Execute transaction also fails if the sender is a wallet owner but didn't confirm the transaction first[m
+[31m-        utils.assertThrowsAsynchronously([m
+[31m-            () => multisigInstance.executeTransaction(transactionIdFailed, {from: accounts[0]})[m
+[31m-        )[m
+[31m-        // But it works with the right sender[m
+[31m-        await multisigInstance.executeTransaction(transactionIdFailed, {from: accounts[1]})[m
+[31m-        assert.ok((await multisigInstance.transactions(transactionIdFailed))[3])[m
+[31m-[m
+[31m-        // Let one day pass[m
+[31m-        await utils.increaseTimestamp(web3, ONE_DAY+1)[m
+[31m-        assert.equal([m
+[31m-            dailyLimitUpdated,[m
+[31m-            await multisigInstance.calcMaxWithdraw()[m
+[31m-        )[m
+[31m-[m
+[31m-        // User wants to withdraw more than the daily limit. Withdraw is unsuccessful.[m
+[31m-        const value3 = 3000[m
+[31m-        owner1Balance = await utils.balanceOf(web3, accounts[0])[m
+[31m-        await multisigInstance.submitTransaction(accounts[0], value3, "", {from: accounts[1]})[m
+[31m-[m
+[31m-        // Wallet and user balance remain the same.[m
+[31m-        assert.equal([m
+[31m-            owner1Balance,[m
+[31m-            (await utils.balanceOf(web3, accounts[0])).toString()[m
+[31m-        )[m
+[31m-        assert.equal([m
+[31m-            deposit-value2*3-value1,[m
+[31m-            await utils.balanceOf(web3, multisigInstance.address)[m
+[31m-        )[m
+[31m-        assert.equal([m
+[31m-            dailyLimitUpdated,[m
+[31m-            await multisigInstance.calcMaxWithdraw()[m
+[31m-        )[m
+[31m-[m
+[31m-        // Daily withdraw is possible again[m
+[31m-        await multisigInstance.submitTransaction(accounts[0], value2, "", {from: accounts[1]})[m
+[31m-[m
+[31m-        // Wallet balance decreases and user balance increases.[m
+[31m-        assert.equal([m
+[31m-            owner1Balance.add(value2),[m
+[31m-            (await utils.balanceOf(web3, accounts[0])).toString()[m
+[31m-        )[m
+[31m-        assert.equal([m
+[31m-            deposit-value2*4-value1,[m
+[31m-            await utils.balanceOf(web3, multisigInstance.address)[m
+[31m-        )[m
+[31m-        assert.equal([m
+[31m-            dailyLimitUpdated-value2,[m
+[31m-            await multisigInstance.calcMaxWithdraw()[m
+[31m-        )[m
+[31m-        // Try to execute a transaction tha does not exist fails[m
+[31m-        const unknownTransactionId = 999[m
+[31m-        utils.assertThrowsAsynchronously([m
+[31m-            () => multisigInstance.executeTransaction(unknownTransactionId, {from: accounts[0]})[m
+[31m-        )[m
+[31m-    })[m
+[32m+[m[32m  let multisigInstance[m
+[32m+[m[32m  const dailyLimit = 3000[m
+[32m+[m[32m  const requiredConfirmations = 2[m
+[32m+[m
+[32m+[m[32m  beforeEach(async () => {[m
+[32m+[m[32m    multisigInstance = await deployMultisig([accounts[0], accounts[1]], requiredConfirmations, dailyLimit)[m
+[32m+[m[32m    assert.ok(multisigInstance)[m
+[32m+[m[32m  })[m
+[32m+[m
+[32m+[m[32m  it('create multisig', async () => {[m
+[32m+[m[32m    const deposit = 10000[m
+[32m+[m
+[32m+[m[32m    // Send money to wallet contract[m
+[32m+[m[32m    await new Promise((resolve, reject) => web3.eth.sendTransaction({[m
+[32m+[m[32m      to: multisigInstance.address,[m
+[32m+[m[32m      value: deposit,[m
+[32m+[m[32m      from: accounts[0][m
+[32m+[m[32m    }, e => (e ? reject(e) : resolve())))[m
+[32m+[m[32m    const balance = await utils.balanceOf(web3, multisigInstance.address)[m
+[32m+[m[32m    assert.equal(balance.toNumber(), deposit)[m
+[32m+[m[32m    assert.equal(dailyLimit, await multisigInstance.dailyLimit())[m
+[32m+[m[32m    assert.equal(dailyLimit, await multisigInstance.calcMaxWithdraw())[m
+[32m+[m
+[32m+[m[32m    // Withdraw daily limit[m
+[32m+[m[32m    const value1 = 2000[m
+[32m+[m[32m    let owner1Balance = await utils.balanceOf(web3, accounts[0])[m
+[32m+[m[32m    let owner2Balance = await utils.balanceOf(web3, accounts[1])[m
+[32m+[m[32m    await multisigInstance.submitTransaction(accounts[0], value1, "", {from: accounts[1]})[m
+[32m+[m[32m    assert.ok([m
+[32m+[m[32m      owner2Balance.sub((await utils.balanceOf(web3, accounts[1]))).toNumber() < 1e17[m
+[32m+[m[32m    )[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      owner1Balance.add(value1).toNumber(),[m
+[32m+[m[32m      (await utils.balanceOf(web3, accounts[0])).toNumber()[m
+[32m+[m[32m    )[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      balance.sub(value1).toNumber(),[m
+[32m+[m[32m      (await utils.balanceOf(web3, multisigInstance.address)).toNumber()[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m[32m    // Update daily limit[m
+[32m+[m[32m    const dailyLimitUpdated = 2000[m
+[32m+[m[32m    const dailyLimitEncoded = multisigInstance.contract.changeDailyLimit.getData(dailyLimitUpdated)[m
+[32m+[m[32m    const transactionId = utils.getParamFromTxEvent([m
+[32m+[m[32m      await multisigInstance.submitTransaction(multisigInstance.address, 0, dailyLimitEncoded, {from: accounts[0]}),[m
+[32m+[m[32m      'transactionId', null, 'Submission')[m
+[32m+[m
+[32m+[m[32m    await multisigInstance.confirmTransaction(transactionId, {from: accounts[1]})[m
+[32m+[m[32m    assert.equal(dailyLimitUpdated, await multisigInstance.dailyLimit())[m
+[32m+[m[32m    assert.equal(0, await multisigInstance.calcMaxWithdraw())[m
+[32m+[m
+[32m+[m[32m    await utils.increaseTimestamp(web3, ONE_DAY + 1)[m
+[32m+[m[32m    assert.equal(dailyLimitUpdated, (await multisigInstance.calcMaxWithdraw()).toNumber())[m
+[32m+[m
+[32m+[m[32m    // Withdraw daily limit[m
+[32m+[m[32m    const value2 = 1000[m
+[32m+[m[32m    owner1Balance = await utils.balanceOf(web3, accounts[0])[m
+[32m+[m[32m    await multisigInstance.submitTransaction(accounts[0], value2, "", {from: accounts[1]})[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      owner1Balance.add(value2).toString(),[m
+[32m+[m[32m      (await utils.balanceOf(web3, accounts[0])).toString()[m
+[32m+[m[32m    )[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      deposit - value2 - value1,[m
+[32m+[m[32m      await utils.balanceOf(web3, multisigInstance.address)[m
+[32m+[m[32m    )[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      dailyLimitUpdated - value2,[m
+[32m+[m[32m      await multisigInstance.calcMaxWithdraw()[m
+[32m+[m[32m    )[m
+[32m+[m[32m    await multisigInstance.submitTransaction(accounts[0], value2, "", {from: accounts[1]})[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      owner1Balance.add(value2 * 2).toString(),[m
+[32m+[m[32m      (await utils.balanceOf(web3, accounts[0])).toString()[m
+[32m+[m[32m    )[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      deposit - value2 * 2 - value1,[m
+[32m+[m[32m      await utils.balanceOf(web3, multisigInstance.address)[m
+[32m+[m[32m    )[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      dailyLimitUpdated - value2 * 2,[m
+[32m+[m[32m      await multisigInstance.calcMaxWithdraw()[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m[32m    // Third time fails, because daily limit was reached[m
+[32m+[m[32m    const transactionIdFailed = utils.getParamFromTxEvent([m
+[32m+[m[32m      await multisigInstance.submitTransaction(accounts[0], value2, "", {from: accounts[1]}),[m
+[32m+[m[32m      'transactionId', null, 'Submission')[m
+[32m+[m[32m    assert.equal(false, (await multisigInstance.transactions(transactionIdFailed))[3])[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      owner1Balance.add(value2 * 2).toString(),[m
+[32m+[m[32m      (await utils.balanceOf(web3, accounts[0])).toString()[m
+[32m+[m[32m    )[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      deposit - value2 * 2 - value1,[m
+[32m+[m[32m      await utils.balanceOf(web3, multisigInstance.address)[m
+[32m+[m[32m    )[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      0,[m
+[32m+[m[32m      await multisigInstance.calcMaxWithdraw()[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m[32m    // Let one day pass[m
+[32m+[m[32m    await utils.increaseTimestamp(web3, ONE_DAY + 1)[m
+[32m+[m[32m    assert.equal(dailyLimitUpdated, (await multisigInstance.calcMaxWithdraw()).toNumber())[m
+[32m+[m
+[32m+[m[32m    // Execute transaction should work now but fails, because it is triggered from a non owner address[m
+[32m+[m[32m    utils.assertThrowsAsynchronously([m
+[32m+[m[32m      () => multisigInstance.executeTransaction(transactionIdFailed, {from: accounts[9]})[m
+[32m+[m[32m    )[m
+[32m+[m[32m    // Execute transaction also fails if the sender is a wallet owner but didn't confirm the transaction first[m
+[32m+[m[32m    utils.assertThrowsAsynchronously([m
+[32m+[m[32m      () => multisigInstance.executeTransaction(transactionIdFailed, {from: accounts[0]})[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m[32m    // transaction has not expired[m
+[32m+[m[32m    let hasNotExpired = await multisigInstance.hasNotExpired(transactionIdFailed)[m
+[32m+[m[32m    assert.ok(hasNotExpired)[m
+[32m+[m
+[32m+[m[32m    // But it works with the right sender[m
+[32m+[m[32m    await multisigInstance.executeTransaction(transactionIdFailed, {from: accounts[1]})[m
+[32m+[m[32m    assert.ok((await multisigInstance.transactions(transactionIdFailed))[3])[m
+[32m+[m
+[32m+[m[32m    // Let one day pass[m
+[32m+[m[32m    await utils.increaseTimestamp(web3, ONE_DAY + 1)[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      dailyLimitUpdated,[m
+[32m+[m[32m      await multisigInstance.calcMaxWithdraw()[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m[32m    // User wants to withdraw more than the daily limit. Withdraw is unsuccessful.[m
+[32m+[m[32m    const value3 = 3000[m
+[32m+[m[32m    owner1Balance = await utils.balanceOf(web3, accounts[0])[m
+[32m+[m[32m    await multisigInstance.submitTransaction(accounts[0], value3, "", {from: accounts[1]})[m
+[32m+[m
+[32m+[m[32m    // Wallet and user balance remain the same.[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      owner1Balance,[m
+[32m+[m[32m      (await utils.balanceOf(web3, accounts[0])).toString()[m
+[32m+[m[32m    )[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      deposit - value2 * 3 - value1,[m
+[32m+[m[32m      await utils.balanceOf(web3, multisigInstance.address)[m
+[32m+[m[32m    )[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      dailyLimitUpdated,[m
+[32m+[m[32m      await multisigInstance.calcMaxWithdraw()[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m[32m    // Daily withdraw is possible again[m
+[32m+[m[32m    await multisigInstance.submitTransaction(accounts[0], value2, "", {from: accounts[1]})[m
+[32m+[m
+[32m+[m[32m    // Wallet balance decreases and user balance increases.[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      owner1Balance.add(value2),[m
+[32m+[m[32m      (await utils.balanceOf(web3, accounts[0])).toString()[m
+[32m+[m[32m    )[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      deposit - value2 * 4 - value1,[m
+[32m+[m[32m      await utils.balanceOf(web3, multisigInstance.address)[m
+[32m+[m[32m    )[m
+[32m+[m[32m    assert.equal([m
+[32m+[m[32m      dailyLimitUpdated - value2,[m
+[32m+[m[32m      await multisigInstance.calcMaxWithdraw()[m
+[32m+[m[32m    )[m
+[32m+[m[32m    // Try to execute a transaction tha does not exist fails[m
+[32m+[m[32m    const unknownTransactionId = 999[m
+[32m+[m[32m    utils.assertThrowsAsynchronously([m
+[32m+[m[32m      () => multisigInstance.executeTransaction(unknownTransactionId, {from: accounts[0]})[m
+[32m+[m[32m    )[m
+[32m+[m[32m  })[m
+ })[m
+\ No newline at end of file[m
+[1mdiff --git a/test/javascript/testMultiSigWalletWithDailyLimitFactory.js b/test/javascript/testMultiSigWalletWithDailyLimitFactory.js[m
+[1mindex ab77c41..2b87465 100644[m
+[1m--- a/test/javascript/testMultiSigWalletWithDailyLimitFactory.js[m
+[1m+++ b/test/javascript/testMultiSigWalletWithDailyLimitFactory.js[m
+[36m@@ -1,49 +1,53 @@[m
+ const MultiSigWalletWithDailyLimit = artifacts.require('MultiSigWalletWithDailyLimit')[m
+ const MultiSigWalletWithDailyLimitFactory = artifacts.require('MultiSigWalletWithDailyLimitFactory')[m
+[31m-const web3 = MultiSigWalletWithDailyLimitFactory.web3[m
+[32m+[m[32m// const web3 = MultiSigWalletWithDailyLimitFactory.web3[m
+ [m
+ const utils = require('./utils')[m
+ [m
+ contract('MultiSigWalletWithDailyLimitFactory', (accounts) => {[m
+[31m-    let factoryInstance[m
+[31m-    const dailyLimit = 3000[m
+[31m-    const requiredConfirmations = 2[m
+[31m-[m
+[31m-    beforeEach(async () => {[m
+[31m-        // [accounts[0], accounts[1]], requiredConfirmations, dailyLimit[m
+[31m-        factoryInstance = await MultiSigWalletWithDailyLimitFactory.new()[m
+[31m-        assert.ok(factoryInstance)[m
+[31m-    })[m
+[31m-[m
+[31m-    it('Multisig Factory', async () => {[m
+[31m-        // Create factory[m
+[31m-        const tx = await factoryInstance.create([accounts[0], accounts[1]], requiredConfirmations, dailyLimit)[m
+[31m-        const walletAddress = utils.getParamFromTxEvent(tx, 'instantiation', null, 'ContractInstantiation')[m
+[31m-[m
+[31m-        const walletCount = await factoryInstance.getInstantiationCount(accounts[0])[m
+[31m-        const multisigWalletAddressConfirmation = await factoryInstance.instantiations(accounts[0], walletCount.sub(1).toNumber())[m
+[31m-        assert.equal(walletAddress, multisigWalletAddressConfirmation)[m
+[31m-        assert.ok(factoryInstance.isInstantiation(walletAddress))[m
+[31m-[m
+[31m-        // Send money to wallet contract[m
+[31m-        const multisigInstance = MultiSigWalletWithDailyLimit.at(walletAddress)[m
+[31m-        const deposit = 10000[m
+[31m-        await new Promise((resolve, reject) => web3.eth.sendTransaction({to: walletAddress, value: deposit, from: accounts[0]}, e => (e ? reject(e) : resolve())))[m
+[31m-        const balance = await utils.balanceOf(web3, walletAddress)        [m
+[31m-        assert.equal(balance.valueOf(), deposit)[m
+[31m-        assert.equal(dailyLimit, await multisigInstance.dailyLimit())[m
+[31m-        assert.equal(dailyLimit, await multisigInstance.calcMaxWithdraw())[m
+[31m-        [m
+[31m-        // Update daily limit[m
+[31m-        const dailyLimitUpdated = 2000[m
+[31m-        const dailyLimitEncoded = multisigInstance.contract.changeDailyLimit.getData(dailyLimitUpdated)[m
+[31m-        const transactionId = utils.getParamFromTxEvent([m
+[31m-            await multisigInstance.submitTransaction(multisigInstance.address, 0, dailyLimitEncoded, {from: accounts[0]}),[m
+[31m-            'transactionId', null, 'Submission'[m
+[31m-        )        [m
+[31m-[m
+[31m-        await multisigInstance.confirmTransaction(transactionId, {from: accounts[1]})[m
+[31m-        assert.equal(dailyLimitUpdated, (await multisigInstance.dailyLimit()).toNumber())[m
+[31m-        assert.equal(dailyLimitUpdated, (await multisigInstance.calcMaxWithdraw()).toNumber())[m
+[31m-    })[m
+[32m+[m[32m  let factoryInstance[m
+[32m+[m[32m  const dailyLimit = 3000[m
+[32m+[m[32m  const requiredConfirmations = 2[m
+[32m+[m
+[32m+[m[32m  before(async () => {[m
+[32m+[m[32m    // [accounts[0], accounts[1]], requiredConfirmations, dailyLimit[m
+[32m+[m[32m    factoryInstance = await MultiSigWalletWithDailyLimitFactory.new(false)[m
+[32m+[m[32m    assert.ok(factoryInstance)[m
+[32m+[m[32m  })[m
+[32m+[m
+[32m+[m[32m  it('Multisig Factory', async () => {[m
+[32m+[m[32m    // Create factory[m
+[32m+[m[32m    const tx = await factoryInstance.create([accounts[0], accounts[1]], requiredConfirmations, dailyLimit)[m
+[32m+[m[32m    const walletAddress = utils.getParamFromTxEvent(tx, 'instantiation', null, 'ContractInstantiation')[m
+[32m+[m
+[32m+[m[32m    const walletCount = await factoryInstance.getInstantiationCount(accounts[0])[m
+[32m+[m[32m    const multisigWalletAddressConfirmation = await factoryInstance.instantiations(accounts[0], walletCount.sub(1).toNumber())[m
+[32m+[m[32m    assert.equal(walletAddress, multisigWalletAddressConfirmation)[m
+[32m+[m[32m    assert.ok(factoryInstance.isInstantiation(walletAddress))[m
+[32m+[m
+[32m+[m[32m    // Send money to wallet contract[m
+[32m+[m[32m    const multisigInstance = MultiSigWalletWithDailyLimit.at(walletAddress)[m
+[32m+[m[32m    const deposit = 10000[m
+[32m+[m[32m    await new Promise((resolve, reject) => web3.eth.sendTransaction({[m
+[32m+[m[32m      to: walletAddress,[m
+[32m+[m[32m      value: deposit,[m
+[32m+[m[32m      from: accounts[0][m
+[32m+[m[32m    }, e => (e ? reject(e) : resolve())))[m
+[32m+[m[32m    const balance = await utils.balanceOf(web3, walletAddress)[m
+[32m+[m[32m    assert.equal(balance.valueOf(), deposit)[m
+[32m+[m[32m    assert.equal(dailyLimit, await multisigInstance.dailyLimit())[m
+[32m+[m[32m    assert.equal(dailyLimit, await multisigInstance.calcMaxWithdraw())[m
+[32m+[m
+[32m+[m[32m    // Update daily limit[m
+[32m+[m[32m    const dailyLimitUpdated = 2000[m
+[32m+[m[32m    const dailyLimitEncoded = multisigInstance.contract.changeDailyLimit.getData(dailyLimitUpdated)[m
+[32m+[m[32m    const transactionId = utils.getParamFromTxEvent([m
+[32m+[m[32m      await multisigInstance.submitTransaction(multisigInstance.address, 0, dailyLimitEncoded, {from: accounts[0]}),[m
+[32m+[m[32m      'transactionId', null, 'Submission'[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m[32m    await multisigInstance.confirmTransaction(transactionId, {from: accounts[1]})[m
+[32m+[m[32m    assert.equal(dailyLimitUpdated, (await multisigInstance.dailyLimit()).toNumber())[m
+[32m+[m[32m    assert.equal(dailyLimitUpdated, (await multisigInstance.calcMaxWithdraw()).toNumber())[m
+[32m+[m[32m  })[m
+ })[m
+\ No newline at end of file[m
+[1mdiff --git a/truffle.js b/truffle.js[m
+[1mindex 2491c7c..508a426 100644[m
+[1m--- a/truffle.js[m
+[1m+++ b/truffle.js[m
+[36m@@ -1,9 +1,24 @@[m
+[32m+[m
+ module.exports = {[m
+   networks: {[m
+     development: {[m
+       host: "localhost",[m
+[31m-      port: 8545,[m
+[31m-      network_id: "*" // Match any network id[m
+[32m+[m[32m      port: 9545,[m
+[32m+[m[32m      network_id: 12 // Match any network id[m
+[32m+[m[32m    },[m
+[32m+[m[32m    rinkeby: {[m
+[32m+[m[32m      host: '34.213.220.128',[m
+[32m+[m[32m      port: 10001,[m
+[32m+[m[32m      network_id: '4',[m
+[32m+[m[32m      before_timeout: 200000,[m
+[32m+[m[32m      test_timeout: 300000[m
+[32m+[m[32m    },[m
+[32m+[m[32m    backstage: {[m
+[32m+[m[32m      host: '54.148.24.3',[m
+[32m+[m[32m      port: 10001,[m
+[32m+[m[32m      network_id: '200',[m
+[32m+[m[32m      before_timeout: 200000,[m
+[32m+[m[32m      test_timeout: 300000[m
+     }[m
+   }[m
+ };[m
+[1mdiff --git a/truffle_test_runner.sh b/truffle_test_runner.sh[m
+[1mindex a226753..aa6f631 100644[m
+[1m--- a/truffle_test_runner.sh[m
+[1m+++ b/truffle_test_runner.sh[m
+[36m@@ -1,5 +1,7 @@[m
+[32m+[m[32m#!/usr/bin/env bash[m
+ # Tests have to be executed separately due to https://github.com/ethereumjs/testrpc/issues/346[m
+ truffle compile[m
+ run-with-testrpc -d 'truffle test test/javascript/testMultiSigWalletWithDailyLimit.js'[m
+ run-with-testrpc -d 'truffle test test/javascript/testMultiSigWalletWithDailyLimitFactory.js'[m
+[31m-run-with-testrpc -d 'truffle test test/javascript/testExecutionAfterRequirementsChanged.js'[m
+\ No newline at end of file[m
+[32m+[m[32mrun-with-testrpc -d 'truffle test test/javascript/testExecutionAfterRequirementsChanged.js'[m
+[32m+[m[32mrun-with-testrpc -d 'truffle test test/javascript/testExpiryLimit.js'[m
+\ No newline at end of file[m
