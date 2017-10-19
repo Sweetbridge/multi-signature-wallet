@@ -64,6 +64,8 @@ contract MultiSigWalletWithDailyLimit is MultiSigWallet {
                 if (!_confirmed)
                     spentToday -= trx.value;
             }
+        } else {
+            ExecutionFailure(transactionId);
         }
     }
 
