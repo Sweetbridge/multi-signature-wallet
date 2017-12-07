@@ -1,4 +1,4 @@
-pragma solidity 0.4.15;
+pragma solidity 0.4.18;
 
 /// @title Test token contract - Allows testing of token transfers with multisig wallet.
 contract TestToken {
@@ -87,7 +87,7 @@ contract TestToken {
     /// @param _spender Address of token spender.
     /// @return Returns remaining allowance for spender.
     function allowance(address _owner, address _spender)
-        constant
+        view
         public
         returns (uint256 remaining)
     {
@@ -98,7 +98,7 @@ contract TestToken {
     /// @param _owner Address of token owner.
     /// @return Returns balance of owner.
     function balanceOf(address _owner)
-        constant
+        view
         public
         returns (uint256 balance)
     {

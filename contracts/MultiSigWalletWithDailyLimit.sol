@@ -1,4 +1,4 @@
-pragma solidity 0.4.15;
+pragma solidity 0.4.18;
 
 
 import "./MultiSigWallet.sol";
@@ -30,21 +30,21 @@ contract MultiSigWalletWithDailyLimit is MultiSigWallet {
     /// @param _required Number of required confirmations.
     /// @param _dailyLimit Amount in wei, which can be withdrawn without confirmations on a daily basis.
     function MultiSigWalletWithDailyLimit(address[] _owners, uint _required, uint _dailyLimit, uint24 _expiryDelay)
-    MultiSigWallet(_owners, _required, _expiryDelay)
+        MultiSigWallet(_owners, _required, _expiryDelay) public
     {
         dailyLimit = _dailyLimit;
     }
 
     /// @dev Allows to change the daily limit. Transaction has to be sent by wallet.
     /// @param _dailyLimit Amount in wei.
-    function changeDailyLimit(uint _dailyLimit) onlyWallet {
+    function changeDailyLimit(uint _dailyLimit) public onlyWallet {
         dailyLimit = _dailyLimit;
         DailyLimitChange(_dailyLimit);
     }
 
     /// @dev Allows anyone to execute a confirmed transaction or ether withdraws until daily limit is reached.
     /// @param transactionId Transaction ID.
-    function executeTransaction(uint transactionId)
+    function executeTransaction(uint transactionId) public
         ownerExists(msg.sender)
         confirmed(transactionId, msg.sender)
         notExecuted(transactionId)
@@ -93,7 +93,7 @@ contract MultiSigWalletWithDailyLimit is MultiSigWallet {
      */
     /// @dev Returns maximum withdraw amount.
     /// @return Returns amount.
-    function calcMaxWithdraw() constant returns (uint)
+    function calcMaxWithdraw() public view returns (uint)
     {
         if (now > lastDay + 24 hours)
         return dailyLimit;

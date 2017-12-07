@@ -1,4 +1,4 @@
-pragma solidity 0.4.15;
+pragma solidity 0.4.18;
 
 import "./Factory.sol";
 import "./MultiSigWallet.sol";
@@ -26,7 +26,7 @@ contract MultiSigWalletFactory is Factory {
         returns (address wallet)
     {
         uint24 delay = 120;
-        if(prod) delay = 15 * 24 * 3600;
+        if(prod) delay = 15 * 24 * 3600; //15 days
         wallet = new MultiSigWallet(_owners, _required, delay);
         register(wallet);
     }

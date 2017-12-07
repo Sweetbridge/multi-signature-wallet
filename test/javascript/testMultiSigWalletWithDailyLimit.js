@@ -1,11 +1,11 @@
 const MultiSigWalletWithDailyLimit = artifacts.require('MultiSigWalletWithDailyLimit')
 const web3 = MultiSigWalletWithDailyLimit.web3
-const deployMultisig = (owners, confirmations, limit) => {
-  return MultiSigWalletWithDailyLimit.new(owners, confirmations, limit, 120)
-}
-
 const utils = require('./utils')
 const ONE_DAY = 24 * 3600
+
+const deployMultisig = (owners, confirmations, limit) => {
+  return MultiSigWalletWithDailyLimit.new(owners, confirmations, limit, 15 * ONE_DAY)
+}
 
 contract('MultiSigWalletWithDailyLimit', (accounts) => {
   let multisigInstance

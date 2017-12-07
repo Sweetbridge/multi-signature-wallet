@@ -1,4 +1,4 @@
-pragma solidity 0.4.15;
+pragma solidity 0.4.18;
 
 
 /// @title Multisignature wallet - Allows multiple parties to agree on transactions before execution.
@@ -95,7 +95,7 @@ contract MultiSigWallet {
 
     /// @dev Fallback function allows to deposit ether.
     function()
-        payable
+        payable public
     {
         if (msg.value > 0)
             Deposit(msg.sender, msg.value);
@@ -107,8 +107,8 @@ contract MultiSigWallet {
     /// @dev Contract constructor sets initial owners and required number of confirmations.
     /// @param _owners List of initial owners.
     /// @param _required Number of required confirmations.
-    function MultiSigWallet(address[] _owners, uint _required, uint24 _expiryDelay)
-            validRequirement(_owners.length, _required) {
+    function MultiSigWallet(address[] _owners, uint _required, uint24 _expiryDelay) public
+        validRequirement(_owners.length, _required) {
         for (uint i = 0; i < _owners.length; i++) {
             require (!isOwner[_owners[i]] && _owners[i] != address(0));
             isOwner[_owners[i]] = true;
@@ -242,12 +242,12 @@ contract MultiSigWallet {
         ExecutionFailure(transactionId);
     }
 
-    function expiryDetails(uint transactionId) constant returns (uint now_, uint delay_) {
+    function expiryDetails(uint transactionId) public view returns (uint now_, uint delay_) {
         now_ = now;
         delay_ = transactions[transactionId].timestamp + expiryDelay;
     }
 
-    function hasNotExpired(uint transactionId) constant returns(bool) {
+    function hasNotExpired(uint transactionId) public view returns(bool) {
         return now < transactions[transactionId].timestamp + expiryDelay;
     }
 
