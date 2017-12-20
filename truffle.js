@@ -4,6 +4,12 @@ module.exports = {
     development: {
       host: "localhost",
       port: 9545,
+      solc: {
+        optimizer: {
+          enabled: true,
+          runs: 200
+        }
+      },
       network_id: 12 // Match any network id
     },
     rinkeby: {
