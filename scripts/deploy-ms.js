@@ -4,15 +4,23 @@ var fs = require('fs')
 
 module.exports = function (callback) {
   let args = process.argv
+  /*
+  this script only works if the network is the last parameter passed to the script
+  the network is given as parameter in the following format
+  --network=network-name
+  --network networkname
+   */
+  //get the parameter and the value in case of the first format
   let net = args.find(arg => arg.startsWith('--network'))
+  //in case of the second format, the args array is extended
   if(args.indexOf('--network') !== -1) {
     net = args[args.indexOf('--network') + 1]
-  } else if (net) {
+  } else if (net) { //the second format was used
     net = net.substring(10)
   }
 
   let constructors = []
-  let ms = {
+  let output = {
     networkId: web3.version.network,
     network: net || 'development'
   }
@@ -25,12 +33,11 @@ module.exports = function (callback) {
   Promise.all(constructors)
     .then(res => {
       res.forEach(r => {
-        let tx = web3.eth.getTransactionReceipt(r.wallet.transactionHash)
-        ms[r.name] = {
+        output[r.name] = {
           contractAddress: r.wallet.address
         }
       })
-      fs.writeFileSync('wallet-contracts.json', JSON.stringify(ms))
+      fs.writeFileSync('wallet-contracts.json', JSON.stringify(output))
       callback()
     })
 }

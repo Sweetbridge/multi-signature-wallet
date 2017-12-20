@@ -10,7 +10,7 @@ module.exports = {
           runs: 200
         }
       },
-      network_id: 12 // Match any network id
+      network_id: 12
     },
     rinkeby: {
       host: '34.213.220.128',
