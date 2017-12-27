@@ -28,7 +28,11 @@ module.exports = function (callback) {
     constructors.push(MultiSigWallet.new(wallet.owners, wallet.signatures, 3600 * 24 * 15)
       .then(w => {
         return {name: wallet.name, wallet: w}
-      }))
+      })
+      .catch(e => {
+        return {name: wallet.name, wallet: {address: e.message}}
+      })
+    )
   })
   Promise.all(constructors)
     .then(res => {

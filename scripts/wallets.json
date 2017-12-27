@@ -2,81 +2,48 @@
   "wallets": [
     {
       "owners": [
-        "0x0f21f6fb13310ac0e17205840a91da93119efbec",
-        "0xe2f8a351678d4264df0522d3d61d83258ce83daf",
-        "0x41c0b08962537ca31457eaee11e23f155a3c00f4",
-        "0x47f29212d23dbd98c0b6fa101848c770fa20e314",
-        "0x3e2ce8d8116627dcde7b7dde207bfbb413fa2a96",
-        "0xa6b8b75d85b6d2c22b8e9e2768f2f405cf09005a",
-        "0x4acb9177ea5166e677ee3462347882f6c0e40fe6",
-        "0x2022fb18ac76563c4eedb1d40a319548938c4f63",
-        "0x855e89aee346d780aa5912838d0fd16b4fcf12a3",
-        "0x3532727c1126ddad9a6e9f935b74e41e7b1d4025"
+        "0x1B10dc8E54007AC01FD522745E03073eF2f10B22",
+        "0x55f0a1a581E669f6d352849A895f2c7bA69Da872",
+        "0x0098BdDFdD1Ee59d517d5394BaF71A438dED5472"
       ],
-      "signatures": 2,
-      "name": "test10"
+      "signatures": 1,
+      "name": "test1"
     },
     {
       "owners": [
-        "0x0f21f6fb13310ac0e17205840a91da93119efbec",
-        "0xe2f8a351678d4264df0522d3d61d83258ce83daf",
-        "0x41c0b08962537ca31457eaee11e23f155a3c00f4",
-        "0x47f29212d23dbd98c0b6fa101848c770fa20e314",
-        "0x3e2ce8d8116627dcde7b7dde207bfbb413fa2a96",
-        "0xa6b8b75d85b6d2c22b8e9e2768f2f405cf09005a",
-        "0x4acb9177ea5166e677ee3462347882f6c0e40fe6",
-        "0x2022fb18ac76563c4eedb1d40a319548938c4f63",
-        "0x855e89aee346d780aa5912838d0fd16b4fcf12a3",
-        "0x3532727c1126ddad9a6e9f935b74e41e7b1d4025",
-        "0x0f21f6fb13310ac0e17205840a91da93a19efbec",
-        "0xe2f8a351678d4264df0522d3d61d8325ace83daf",
-        "0x41c0b08962537ca31457eaee11e23f15aa3c00f4",
-        "0x47f29212d23dbd98c0b6fa101848c770aa20e314",
-        "0x3e2ce8d8116627dcde7b7dde207bfbb4a3fa2a96",
-        "0xa6b8b75d85b6d2c22b8e9e2768f2f405af09005a",
-        "0x4acb9177ea5166e677ee3462347882f6a0e40fe6",
-        "0x2022fb18ac76563c4eedb1d40a319548a38c4f63",
-        "0x855e89aee346d780aa5912838d0fd16bafcf12a3",
-        "0x3532727c1126ddad9a6e9f935b74e41eab1d4025"
+        "0x1B10dc8E54007AC01FD522745E03073eF2f10B22",
+        "0x55f0a1a581E669f6d352849A895f2c7bA69Da872",
+        "0x0098BdDFdD1Ee59d517d5394BaF71A438dED5472"
       ],
-      "signatures": 2,
-      "name": "test20"
+      "signatures": 1,
+      "name": "test2"
     },
     {
       "owners": [
-        "0x0f21f6fb13310ac0e17205840a91da93119efbec",
-        "0xe2f8a351678d4264df0522d3d61d83258ce83daf",
-        "0x41c0b08962537ca31457eaee11e23f155a3c00f4",
-        "0x47f29212d23dbd98c0b6fa101848c770fa20e314",
-        "0x3e2ce8d8116627dcde7b7dde207bfbb413fa2a96",
-        "0xa6b8b75d85b6d2c22b8e9e2768f2f405cf09005a",
-        "0x4acb9177ea5166e677ee3462347882f6c0e40fe6",
-        "0x2022fb18ac76563c4eedb1d40a319548938c4f63",
-        "0x855e89aee346d780aa5912838d0fd16b4fcf12a3",
-        "0x3532727c1126ddad9a6e9f935b74e41e7b1d4025",
-        "0x0f21f6fb13310ac0e17205840a91da93a19efbec",
-        "0xe2f8a351678d4264df0522d3d61d8325ace83daf",
-        "0x41c0b08962537ca31457eaee11e23f15aa3c00f4",
-        "0x47f29212d23dbd98c0b6fa101848c770aa20e314",
-        "0x3e2ce8d8116627dcde7b7dde207bfbb4a3fa2a96",
-        "0xa6b8b75d85b6d2c22b8e9e2768f2f405af09005a",
-        "0x4acb9177ea5166e677ee3462347882f6a0e40fe6",
-        "0x2022fb18ac76563c4eedb1d40a319548a38c4f63",
-        "0x855e89aee346d780aa5912838d0fd16bafcf12a3",
-        "0x3532727c1126ddad9a6e9f935b74e41eab1d4025",
-        "0x0f21f6fb13310ac0e17205840a91da93b19efbec",
-        "0xe2f8a351678d4264df0522d3d61d8325bce83daf",
-        "0x41c0b08962537ca31457eaee11e23f15ba3c00f4",
-        "0x47f29212d23dbd98c0b6fa101848c770ba20e314",
-        "0x3e2ce8d8116627dcde7b7dde207bfbb4b3fa2a96",
-        "0xa6b8b75d85b6d2c22b8e9e2768f2f405bf09005a",
-        "0x4acb9177ea5166e677ee3462347882f6b0e40fe6",
-        "0x2022fb18ac76563c4eedb1d40a319548b38c4f63",
-        "0x855e89aee346d780aa5912838d0fd16bbfcf12a3",
-        "0x3532727c1126ddad9a6e9f935b74e41ebb1d4025"
+        "0x1B10dc8E54007AC01FD522745E03073eF2f10B22",
+        "0x55f0a1a581E669f6d352849A895f2c7bA69Da872",
+        "0x0098BdDFdD1Ee59d517d5394BaF71A438dED5472"
       ],
-      "signatures": 2,
-      "name": "test30"
+      "signatures": 1,
+      "name": "test3"
+    },
+    {
+      "owners": [
+        "0x1B10dc8E54007AC01FD522745E03073eF2f10B22",
+        "0x55f0a1a581E669f6d352849A895f2c7bA69Da872",
+        "0x0098BdDFdD1Ee59d517d5394BaF71A438dED5472"
+      ],
+      "signatures": 1,
+      "name": "test4"
+    },
+    {
+      "owners": [
+        "0x1B10dc8E54007AC01FD522745E03073eF2f10B22",
+        "0x55f0a1a581E669f6d352849A895f2c7bA69Da872",
+        "0x0098BdDFdD1Ee59d517d5394BaF71A438dED5472"
+      ],
+      "signatures": 1,
+      "name": "test5"
     }
   ]
 }
