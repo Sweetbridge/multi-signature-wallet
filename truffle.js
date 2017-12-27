@@ -32,11 +32,21 @@ module.exports = {
       before_timeout: 200000,
       test_timeout: 300000
     },
+    ropsten: {
+      host: 'localhost',
+      gas: 4700000,
+      gasPrice: 10000000000,
+      port: 8545,
+      network_id: '1',
+      from: '0x1B10dc8E54007AC01FD522745E03073eF2f10B22',
+      before_timeout: 200000,
+      test_timeout: 300000
+    },
     main: {
       host: 'localhost',
       port: 8545,
       network_id: '1',
-      from: '0x00E34f866e953De05dCB97818C3722eE58A72EEc',
+      from: '0x1B10dc8E54007AC01FD522745E03073eF2f10B22',
       before_timeout: 200000,
       test_timeout: 300000
     }
